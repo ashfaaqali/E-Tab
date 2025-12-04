@@ -43,6 +43,20 @@ class ReaderActivity : AppCompatActivity() {
             Toast.makeText(this, "Error loading book", Toast.LENGTH_SHORT).show()
             finish()
         }
+
+        binding.btnPrev.setOnClickListener {
+            if (currentChapterIndex > 0) {
+                displayChapter(currentChapterIndex - 1)
+            }
+        }
+
+        binding.btnNext.setOnClickListener {
+            currentBook?.let { book ->
+                if (currentChapterIndex < book.spine.size() - 1) {
+                    displayChapter(currentChapterIndex + 1)
+                }
+            }
+        }
     }
 
     private fun setupWebView() {
@@ -58,13 +72,19 @@ class ReaderActivity : AppCompatActivity() {
 
             override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
                 val url = request?.url?.toString() ?: return null
+                android.util.Log.d("ReaderActivity", "Intercepting request: $url")
+                
                 if (url.startsWith("file:///book_res/")) {
-                    val path = url.removePrefix("file:///book_res/")
                     // Try to find resource in book
-                    // This is a naive lookup. Real epub path resolution is complex.
                     // We iterate to find a matching href ending.
+                    // Normalize url to remove the fake base
+                    val relativePath = url.removePrefix("file:///book_res/")
+                    
                     currentBook?.resources?.all?.forEach { resource ->
-                        if (url.endsWith(resource.href)) {
+                        // Check if the resource href matches the end of the requested URL
+                        // This handles cases where href might be "OEBPS/images/img.jpg" and request is ".../images/img.jpg"
+                        if (url.endsWith(resource.href) || resource.href.endsWith(relativePath)) {
+                             android.util.Log.d("ReaderActivity", "Found resource: ${resource.href}")
                             return android.webkit.WebResourceResponse(
                                 resource.mediaType.name,
                                 "UTF-8",
@@ -72,6 +92,7 @@ class ReaderActivity : AppCompatActivity() {
                             )
                         }
                     }
+                    android.util.Log.w("ReaderActivity", "Resource not found for: $url")
                 }
                 return super.shouldInterceptRequest(view, request)
             }
@@ -81,13 +102,16 @@ class ReaderActivity : AppCompatActivity() {
     private fun loadBook(path: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                android.util.Log.d("ReaderActivity", "Loading book from: $path")
                 val inputStream = FileInputStream(path)
                 currentBook = EpubReader().readEpub(inputStream)
+                android.util.Log.d("ReaderActivity", "Book loaded. Title: ${currentBook?.title}, Spine size: ${currentBook?.spine?.size()}")
                 withContext(Dispatchers.Main) {
                     displayChapter(0)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                android.util.Log.e("ReaderActivity", "Error loading book", e)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@ReaderActivity, "Failed to parse epub", Toast.LENGTH_SHORT).show()
                 }
@@ -100,7 +124,9 @@ class ReaderActivity : AppCompatActivity() {
         currentBook?.let { book ->
             if (index < book.spine.size()) {
                 val resource = book.spine.getResource(index)
+                android.util.Log.d("ReaderActivity", "Displaying chapter $index. Resource href: ${resource.href}, Size: ${resource.size}")
                 val rawContent = String(resource.data)
+                android.util.Log.d("ReaderActivity", "Raw content length: ${rawContent.length}")
                 
                 // Inject JS and CSS
                 val content = injectCustomContent(rawContent)
@@ -108,8 +134,14 @@ class ReaderActivity : AppCompatActivity() {
                 // Use a fake base URL that we can intercept
                 // We append the resource href to help with relative path resolution if needed, 
                 // but for now just using a root base.
-                binding.webview.loadDataWithBaseURL("file:///book_res/" + resource.href, content, "text/html", "UTF-8", null)
+                val baseUrl = "file:///book_res/" + resource.href
+                android.util.Log.d("ReaderActivity", "Loading into WebView with BaseURL: $baseUrl")
+                binding.webview.loadDataWithBaseURL(baseUrl, content, "text/html", "UTF-8", null)
+            } else {
+                android.util.Log.e("ReaderActivity", "Invalid chapter index: $index")
             }
+        } ?: run {
+             android.util.Log.e("ReaderActivity", "Current book is null")
         }
     }
 
