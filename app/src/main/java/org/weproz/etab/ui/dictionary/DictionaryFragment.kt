@@ -8,7 +8,6 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
-import org.weproz.etab.data.local.AppDatabase
 import org.weproz.etab.databinding.FragmentDictionaryBinding
 import org.weproz.etab.ui.search.SearchActivity
 
@@ -38,11 +37,11 @@ class DictionaryFragment : Fragment() {
 
     private fun loadWordOfTheDay() {
         lifecycleScope.launch {
-            val dao = AppDatabase.getDatabase(requireContext()).dictionaryDao()
+            val dao = org.weproz.etab.data.local.WordDatabase.getDatabase(requireContext()).wordDao()
             val word = dao.getRandomWord()
             word?.let {
                 binding.textWodWord.text = it.word
-                binding.textWodType.text = it.type ?: ""
+                binding.textWodType.text = it.wordType
                 binding.textWodDefinition.text = it.definition
             }
         }

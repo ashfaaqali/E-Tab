@@ -6,15 +6,15 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import org.weproz.etab.R
-import org.weproz.etab.data.local.DictionaryEntity
+import org.weproz.etab.data.local.DictionaryEntry
 
 class SuggestionAdapter(
-    private val onItemClick: (DictionaryEntity) -> Unit
+    private val onItemClick: (DictionaryEntry) -> Unit
 ) : RecyclerView.Adapter<SuggestionAdapter.ViewHolder>() {
 
-    private var items: List<DictionaryEntity> = emptyList()
+    private var items: List<DictionaryEntry> = emptyList()
 
-    fun submitList(newItems: List<DictionaryEntity>) {
+    fun submitList(newItems: List<DictionaryEntry>) {
         items = newItems
         notifyDataSetChanged()
     }
@@ -33,7 +33,7 @@ class SuggestionAdapter(
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val textView: TextView = itemView.findViewById(R.id.text_word)
 
-        fun bind(item: DictionaryEntity) {
+        fun bind(item: DictionaryEntry) {
             textView.text = item.word
             itemView.setOnClickListener { onItemClick(item) }
         }

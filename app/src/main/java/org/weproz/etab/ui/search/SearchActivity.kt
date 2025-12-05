@@ -39,7 +39,7 @@ class SearchActivity : AppCompatActivity() {
                     delay(300) // Debounce
                     val query = s.toString()
                     if (query.isNotEmpty()) {
-                        val dao = AppDatabase.getDatabase(this@SearchActivity).dictionaryDao()
+                        val dao = org.weproz.etab.data.local.WordDatabase.getDatabase(this@SearchActivity).wordDao()
                         val suggestions = dao.getSuggestions(query)
                         adapter.submitList(suggestions)
                     } else {

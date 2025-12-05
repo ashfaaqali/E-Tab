@@ -254,7 +254,7 @@ class ReaderActivity : AppCompatActivity() {
         @JavascriptInterface
         fun onDefine(word: String) {
             lifecycleScope.launch(Dispatchers.Main) {
-                val dao = AppDatabase.getDatabase(this@ReaderActivity).dictionaryDao()
+                val dao = org.weproz.etab.data.local.WordDatabase.getDatabase(this@ReaderActivity).wordDao()
                 // Try exact match first, then clean up
                 val cleanWord = word.replace(Regex("[^a-zA-Z]"), "")
                 val definition = dao.getDefinition(cleanWord)
