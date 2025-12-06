@@ -34,6 +34,7 @@ class ReaderActivity : AppCompatActivity() {
         binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
             val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -67,8 +68,15 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun setupWebView() {
-        binding.webview.settings.javaScriptEnabled = true
-        binding.webview.settings.domStorageEnabled = true
+        binding.webview.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = true
+            allowContentAccess = true
+            allowFileAccessFromFileURLs = true
+            allowUniversalAccessFromFileURLs = true
+            loadsImagesAutomatically = true
+        }
         binding.webview.addJavascriptInterface(WebAppInterface(), "Android")
         binding.webview.webChromeClient = WebChromeClient()
         binding.webview.webViewClient = object : WebViewClient() {
@@ -79,27 +87,43 @@ class ReaderActivity : AppCompatActivity() {
 
             override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
                 val url = request?.url?.toString() ?: return null
-                android.util.Log.d("ReaderActivity", "Intercepting request: $url")
                 
-                if (url.startsWith("file:///book_res/")) {
-                    // Try to find resource in book
-                    // We iterate to find a matching href ending.
-                    // Normalize url to remove the fake base
-                    val relativePath = url.removePrefix("file:///book_res/")
+                // We use a custom local domain to avoid file:// security restrictions
+                val localDomain = "https://etab.local/"
+                
+                if (url.startsWith(localDomain)) {
+                    val relativePath = url.removePrefix(localDomain)
+                    val decodedPath = java.net.URLDecoder.decode(relativePath, "UTF-8")
                     
-                    currentBook?.resources?.all?.forEach { resource ->
-                        // Check if the resource href matches the end of the requested URL
-                        // This handles cases where href might be "OEBPS/images/img.jpg" and request is ".../images/img.jpg"
-                        if (url.endsWith(resource.href) || resource.href.endsWith(relativePath)) {
-                             android.util.Log.d("ReaderActivity", "Found resource: ${resource.href}")
-                            return android.webkit.WebResourceResponse(
-                                resource.mediaType.name,
-                                "UTF-8",
-                                resource.inputStream
-                            )
-                        }
+                    android.util.Log.d("ReaderActivity", "Requesting: $url -> Decoded: $decodedPath")
+                    
+                    // Logic to find resource:
+                    // Requests might be "OEBPS/images/img.jpg" or just "images/img.jpg" depending on resolution.
+                    // We try to find a resource whose href ends with the requested path.
+                    
+                    var resource = currentBook?.resources?.getByHref(decodedPath)
+                    
+                    if (resource == null) {
+                         currentBook?.resources?.all?.forEach { res ->
+                             // More robust fuzzy match:
+                             // If res.href is "OEBPS/images/cover.jpg" and request is "images/cover.jpg", it matches.
+                             if (res.href == decodedPath || res.href.endsWith(decodedPath) || decodedPath.endsWith(res.href)) {
+                                 resource = res
+                                 return@forEach
+                             }
+                         }
                     }
-                    android.util.Log.w("ReaderActivity", "Resource not found for: $url")
+
+                    if (resource != null) {
+                        android.util.Log.d("ReaderActivity", "Found resource: ${resource.href}")
+                        return android.webkit.WebResourceResponse(
+                            resource.mediaType.name,
+                            "UTF-8",
+                            resource.inputStream
+                        )
+                    } else {
+                         android.util.Log.w("ReaderActivity", "Resource NOT found for: $decodedPath")
+                    }
                 }
                 return super.shouldInterceptRequest(view, request)
             }
@@ -107,6 +131,7 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun loadBook(path: String) {
+        // ... (No change needed here)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 android.util.Log.d("ReaderActivity", "Loading book from: $path")
@@ -133,15 +158,18 @@ class ReaderActivity : AppCompatActivity() {
                 val resource = book.spine.getResource(index)
                 android.util.Log.d("ReaderActivity", "Displaying chapter $index. Resource href: ${resource.href}, Size: ${resource.size}")
                 val rawContent = String(resource.data)
-                android.util.Log.d("ReaderActivity", "Raw content length: ${rawContent.length}")
                 
                 // Inject JS and CSS
                 val content = injectCustomContent(rawContent)
                 
-                // Use a fake base URL that we can intercept
-                // We append the resource href to help with relative path resolution if needed, 
-                // but for now just using a root base.
-                val baseUrl = "file:///book_res/" + resource.href
+                // Use HTTPS base URL to allow confident interception and avoid file:// restrictions
+                // We append the directory of the current chapter to the base so relative links work.
+                // e.g. if chapter is "OEBPS/content.html", base is "https://etab.local/OEBPS/"
+                // So <img src="../img.jpg"> becomes "https://etab.local/img.jpg"
+                
+                // Simple approach: Just use the href as the "path" part of the URL
+                val baseUrl = "https://etab.local/" + resource.href
+                
                 android.util.Log.d("ReaderActivity", "Loading into WebView with BaseURL: $baseUrl")
                 binding.webview.loadDataWithBaseURL(baseUrl, content, "text/html", "UTF-8", null)
             } else {
@@ -232,11 +260,16 @@ class ReaderActivity : AppCompatActivity() {
                 }
                 
                 function restoreHighlight(text) {
-                    // Simple restore by finding text and wrapping it.
-                    // This is naive and will replace all occurrences.
-                    // A better way is to use the stored range data.
+                    // Escape regex special characters
+                    var escapedText = text.replace(/[.*+?^${'$'}{}()[\]\\]/g, '\\${'$'}&');
+                    
                     var body = document.body.innerHTML;
-                    var newBody = body.replace(new RegExp(text, 'g'), '<span class="highlighted">' + text + '</span>');
+                    // Use a more robust replacement that doesn't replace inside existing tags if possible,
+                    // but for MVP replacing text content is tricky with simple regex on innerHTML.
+                    // Risk: replacing attributes. e.g. highlighting "class".
+                    // Improved regex: Match text not inside tags. (Very complex, staying simple for now but safer regex)
+                    
+                    var newBody = body.replace(new RegExp(escapedText, 'g'), '<span class="highlighted">' + text + '</span>');
                     document.body.innerHTML = newBody;
                 }
             </script>
@@ -251,7 +284,9 @@ class ReaderActivity : AppCompatActivity() {
                 val dao = AppDatabase.getDatabase(this@ReaderActivity).highlightDao()
                 val highlights = dao.getHighlightsForChapter(path, currentChapterIndex)
                 highlights.forEach { highlight ->
-                    binding.webview.evaluateJavascript("restoreHighlight('${highlight.highlightedText}')", null)
+                    // Escape single quotes for JS string
+                    val safeText = highlight.highlightedText.replace("'", "\\'")
+                    binding.webview.evaluateJavascript("restoreHighlight('$safeText')", null)
                 }
             }
         }
