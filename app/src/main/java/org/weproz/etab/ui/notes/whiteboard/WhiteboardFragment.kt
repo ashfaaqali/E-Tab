@@ -70,6 +70,37 @@ class WhiteboardFragment : Fragment() {
         binding.btnToolGrid.setOnClickListener { showGridTypeDialog() }
         binding.btnToolUndo.setOnClickListener { binding.whiteboardView.undo() }
         binding.btnToolRedo.setOnClickListener { binding.whiteboardView.redo() }
+        
+        binding.btnNewDoc.setOnClickListener {
+            createNewDocument()
+        }
+    }
+
+    private fun createNewDocument() {
+        // Save current state first
+        saveWhiteboard()
+        
+        // Create backup of current
+        if (dataPath != null) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val currentFile = File(dataPath!!)
+                    if (currentFile.exists()) {
+                        val backupName = "${currentFile.nameWithoutExtension}_backup_${System.currentTimeMillis()}.json"
+                        val backupFile = File(currentFile.parent, backupName)
+                        currentFile.copyTo(backupFile, overwrite = true)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                
+                withContext(Dispatchers.Main) {
+                    // Clear canvas
+                    binding.whiteboardView.clear()
+                    android.widget.Toast.makeText(requireContext(), "New document created (Previous saved)", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun showBrushSettingsDialog() {

@@ -23,15 +23,67 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <androidx.fragment.app.FragmentContainerView
+    <FrameLayout
         android:id="@+id/whiteboard_container"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:background="#CCCCCC"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/webview" />
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- Overlay Navigation Buttons (Constrained to WebView) -->
+    <ImageButton
+        android:id="@+id/btn_overlay_prev"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:background="#80000000"
+        android:src="@drawable/ic_chevron_left"
+        android:padding="8dp"
+        app:tint="@android:color/white"
+        android:elevation="4dp"
+        app:layout_constraintStart_toStartOf="@id/webview"
+        app:layout_constraintTop_toTopOf="@id/webview"
+        app:layout_constraintBottom_toBottomOf="@id/webview" />
+
+    <ImageButton
+        android:id="@+id/btn_overlay_next"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="8dp"
+        android:background="#80000000"
+        android:src="@drawable/ic_chevron_right"
+        android:padding="8dp"
+        app:tint="@android:color/white"
+        android:elevation="4dp"
+        app:layout_constraintEnd_toEndOf="@id/webview"
+        app:layout_constraintTop_toTopOf="@id/webview"
+        app:layout_constraintBottom_toBottomOf="@id/webview" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/split_guideline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.5" />
+
+    <ImageButton
+        android:id="@+id/split_handle"
+        android:layout_width="64dp"
+        android:layout_height="32dp"
+        android:src="@drawable/ic_drag_handle"
+        android:background="#EEEEEE"
+        android:scaleType="centerInside"
+        android:elevation="8dp"
+        android:visibility="gone"
+        app:tint="@android:color/darker_gray"
+        app:layout_constraintTop_toTopOf="@+id/split_guideline"
+        app:layout_constraintBottom_toBottomOf="@+id/split_guideline"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <LinearLayout
         android:id="@+id/controls_container"
@@ -42,27 +94,13 @@
         android:gravity="center"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <Button
-            android:id="@+id/btn_prev"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Prev"
-            android:layout_marginEnd="16dp" />
-
-        <Button
-            android:id="@+id/btn_next"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Next" />
-
         <ImageButton
             android:id="@+id/btn_notes_toggle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
             android:src="@drawable/ic_notes"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
+            android:padding="12dp"
             app:tint="@android:color/black"/>
 
     </LinearLayout>

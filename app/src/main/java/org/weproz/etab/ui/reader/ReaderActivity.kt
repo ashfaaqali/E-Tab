@@ -32,7 +32,6 @@ class ReaderActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityReaderBinding.inflate(layoutInflater)
-        binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -58,92 +57,179 @@ class ReaderActivity : AppCompatActivity() {
             finish()
         }
 
-        binding.btnPrev.setOnClickListener {
-            if (currentChapterIndex > 0) {
-                displayChapter(currentChapterIndex - 1)
-            }
+        setupNavigation()
+    }
+    
+    private val hideNavHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val hideNavRunnable = Runnable {
+        binding.btnOverlayPrev.animate().alpha(0f).setDuration(500).start()
+        binding.btnOverlayNext.animate().alpha(0f).setDuration(500).start()
+    }
+    
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupNavigation() {
+        // Initial state
+        showNavigation()
+        
+        binding.btnOverlayPrev.setOnClickListener {
+            prevChapter()
+            showNavigation()
         }
-
-        binding.btnNext.setOnClickListener {
-            currentBook?.let { book ->
-                if (currentChapterIndex < book.spine.size() - 1) {
-                    displayChapter(currentChapterIndex + 1)
-                }
-            }
+        
+        binding.btnOverlayNext.setOnClickListener {
+            nextChapter()
+            showNavigation()
         }
         
         binding.btnNotesToggle.setOnClickListener {
             toggleSplitView()
+        }
+        
+        val gestureDetector = android.view.GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapUp(e: android.view.MotionEvent): Boolean {
+                val width = binding.webview.width
+                val x = e.x
+                
+                // Check if tapping a link?
+                // For now, strict zones.
+                if (x < width * 0.25) { // Left 25%
+                    prevChapter()
+                    showNavigation()
+                    return true
+                } else if (x > width * 0.75) { // Right 25%
+                    nextChapter()
+                    showNavigation()
+                    return true
+                } else {
+                    // Center tap - just toggle/show controls
+                    showNavigation()
+                }
+                return false
+            }
+            
+            override fun onDown(e: android.view.MotionEvent): Boolean = false
+        })
+        
+        binding.webview.setOnTouchListener { v, event ->
+             gestureDetector.onTouchEvent(event)
+             // Return false to allow WebView to handle other touch events (scrolling, links)
+             false 
+        }
+    }
+    
+    private fun showNavigation() {
+        binding.btnOverlayPrev.animate().cancel()
+        binding.btnOverlayNext.animate().cancel()
+        binding.btnOverlayPrev.alpha = 1f
+        binding.btnOverlayNext.alpha = 1f
+        binding.btnOverlayPrev.visibility = View.VISIBLE
+        binding.btnOverlayNext.visibility = View.VISIBLE
+        
+        hideNavHandler.removeCallbacks(hideNavRunnable)
+        hideNavHandler.postDelayed(hideNavRunnable, 3000) // Hide after 3 seconds
+    }
+    
+    private fun prevChapter() {
+        if (currentChapterIndex > 0) {
+            displayChapter(currentChapterIndex - 1)
+        }
+    }
+    
+    private fun nextChapter() {
+        currentBook?.let { book ->
+            if (currentChapterIndex < book.spine.size() - 1) {
+                displayChapter(currentChapterIndex + 1)
+            }
         }
     }
     
     private var isSplitView = false
     
     private fun toggleSplitView() {
+        android.util.Log.d("ReaderActivity", "toggleSplitView: $isSplitView -> ${!isSplitView}")
         if (isSplitView) {
-            // Restore full screen
+            // Restore Full Screen
             binding.whiteboardContainer.visibility = View.GONE
+            binding.splitHandle.visibility = View.GONE
+            binding.webview.visibility = View.VISIBLE
             
             val params = binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
             params.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
             params.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            params.matchConstraintPercentHeight = 1.0f
-            params.matchConstraintPercentWidth = 1.0f
+            params.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            params.height = 0
+            params.matchConstraintPercentHeight = 1.0f // Ensure full height logic works
             binding.webview.layoutParams = params
             
             isSplitView = false
         } else {
-            // Split screen (Vertical)
+            // Split Screen
             if (bookPath != null) {
                 val bookId = bookPath.hashCode()
                 val notesPath = java.io.File(getExternalFilesDir(null), "wb_book_$bookId.json").absolutePath
-                
-                val fragment = supportFragmentManager.findFragmentById(R.id.whiteboard_container)
-                if (fragment == null) {
-                     val newFragment = org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment.newInstance(notesPath)
-                     supportFragmentManager.beginTransaction()
-                         .replace(R.id.whiteboard_container, newFragment)
-                         .commit()
-                }
+                val newFragment = org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment.newInstance(notesPath)
+                supportFragmentManager.beginTransaction().replace(R.id.whiteboard_container, newFragment).commit()
             }
             
             binding.whiteboardContainer.visibility = View.VISIBLE
+            binding.splitHandle.visibility = View.VISIBLE
             
-            val webViewParams = binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            val containerParams = binding.whiteboardContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            setupSplitDrag()
             
-            // WebView: Top half
-            webViewParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            webViewParams.bottomToTop = R.id.whiteboard_container
-            webViewParams.matchConstraintPercentHeight = 0.5f
-            webViewParams.width = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
-            webViewParams.matchConstraintPercentWidth = 1.0f
+            // Force Guideline to 50%
+            val guideParams = binding.splitGuideline.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            guideParams.guidePercent = 0.5f
+            binding.splitGuideline.layoutParams = guideParams
+            
+            // WebView Constraints
+            val webParams = binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            webParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            webParams.bottomToTop = R.id.split_guideline
+            webParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            webParams.height = 0
+            // webParams.matchConstraintPercentHeight = 1.0f // REMOVED to allow anchors to determine height
+            binding.webview.layoutParams = webParams
 
-            // Container: Bottom half
-            containerParams.topToBottom = R.id.webview
-            containerParams.bottomToTop = R.id.controls_container // Avoid overlapping controls
-            containerParams.matchConstraintPercentHeight = 0.5f // Ideally this + webview = 100% of parent, but controls take space?
-            // If we anchor to controls, percent height might conflict if parent height != (webview + container + controls).
-            // Safer: Use Weights or set percent to 0.45?
-            // Let's us Weights logic if possible? 
-            // Or simpler: WebView Height = 0dp, Weight = 1. Container Height = 0dp, Weight = 1.
-            // Chain: WebView Top->Parent, WebView Bottom->Container Top.
-            // Container Top->WebView Bottom, Container Bottom->Controls Top.
-            // This is a Vertical Chain.
-            // Let's try manual constraints for typical split without relying on chains if complex.
-            // 50% Top / 50% Bottom relative to parent is robust and predictable.
-            // Controls will match parent bottom. Whiteboard bottom will be 50% from top (middle) to 100% (bottom).
-            // So Whiteboard will act as background to controls. That is acceptable.
-            
+            // Container Constraints
+            val containerParams = binding.whiteboardContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            containerParams.topToBottom = R.id.split_guideline
+            containerParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
             containerParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
             containerParams.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            containerParams.width = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
-            containerParams.matchConstraintPercentWidth = 1.0f
-            
-            binding.webview.layoutParams = webViewParams
+            containerParams.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            containerParams.endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            containerParams.height = 0
+            containerParams.width = 0 // Match Constraint
             binding.whiteboardContainer.layoutParams = containerParams
             
+            binding.root.requestLayout()
             isSplitView = true
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupSplitDrag() {
+        binding.splitHandle.setOnTouchListener { _, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    // Calculate percent based on touch Y relative to root height
+                    val rootHeight = binding.root.height.toFloat()
+                    if (rootHeight > 0) {
+                        // We use the rawY to get global position, but we need relative to root if root is offset?
+                        // Assuming ReaderActivity is full screen essentially.
+                        var percent = event.rawY / rootHeight
+                        
+                        // Clamp
+                        if (percent < 0.2f) percent = 0.2f
+                        if (percent > 0.8f) percent = 0.8f
+                        
+                        val params = binding.splitGuideline.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+                        params.guidePercent = percent
+                        binding.splitGuideline.layoutParams = params
+                    }
+                }
+            }
+            true
         }
     }
 

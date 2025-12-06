@@ -312,6 +312,14 @@ class WhiteboardView @JvmOverloads constructor(
         paths.addAll(actions)
         invalidate()
     }
+    
+    fun clear() {
+        paths.clear()
+        undonePaths.clear()
+        currentPath.reset()
+        currentPoints.clear()
+        invalidate()
+    }
 
     private fun drawGrid(canvas: Canvas) {
         if (gridType == GridType.NONE) return
