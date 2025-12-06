@@ -29,15 +29,6 @@
                 android:gravity="center_vertical"
                 android:padding="4dp">
 
-                <!-- Back Button -->
-                <ImageButton
-                    android:id="@+id/btn_back"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@drawable/ic_arrow_back"
-                    app:tint="@android:color/white" />
-
                 <!-- Tools Container -->
                 <LinearLayout
                     android:layout_width="0dp"
@@ -46,47 +37,14 @@
                     android:gravity="center"
                     android:orientation="horizontal">
 
-                    <!-- Color Select -->
+                    <!-- Brush (Pen/Eraser/Color/Size) -->
                     <ImageButton
-                        android:id="@+id/btn_tool_color"
+                        android:id="@+id/btn_tool_brush"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:layout_marginEnd="8dp"
                          android:background="@drawable/bg_toolbar_tool"
-                        android:src="@drawable/ic_edit" 
-                        android:padding="8dp"
-                        app:tint="@android:color/white"/>
-
-                    <!-- Eraser Select -->
-                    <ImageButton
-                        android:id="@+id/btn_tool_eraser"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:src="@drawable/ic_eraser"
-                        android:padding="8dp"
-                        app:tint="@android:color/white"/>
-
-                    <!-- Add Text -->
-                    <ImageButton
-                        android:id="@+id/btn_tool_text"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:src="@drawable/ic_text_fields"
-                        android:padding="8dp"
-                        app:tint="@android:color/white"/>
-
-                    <!-- Grid -->
-                    <ImageButton
-                        android:id="@+id/btn_tool_grid"
-                        android:layout_width="40dp"
-                         android:layout_height="40dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:src="@drawable/ic_grid"
+                        android:src="@drawable/ic_brush" 
                         android:padding="8dp"
                         app:tint="@android:color/white"/>
 
@@ -106,17 +64,37 @@
                         android:id="@+id/btn_tool_redo"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
+                        android:layout_marginEnd="8dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_redo"
                         android:padding="8dp"
                         app:tint="@android:color/white"/>
 
+                    <!-- Grid -->
+                    <ImageButton
+                        android:id="@+id/btn_tool_grid"
+                        android:layout_width="40dp"
+                         android:layout_height="40dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_grid"
+                        android:padding="8dp"
+                        app:tint="@android:color/white"/>
+
+                    <!-- Add Text -->
+                    <ImageButton
+                        android:id="@+id/btn_tool_text"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_text_fields"
+                        android:padding="8dp"
+                        app:tint="@android:color/white"/>
+
                 </LinearLayout>
 
-                <!-- More Options (Menu) -->
-                <!-- We will rely on the standard toolbar menu support for the 3 dots, 
-                     so we don't add a manual button here unless we want custom.
-                     Standard setSupportActionBar lets us use onCreateOptionsMenu. -->
+                <!-- More Options (Menu) handled by setSupportActionBar -->
 
             </LinearLayout>
         </androidx.appcompat.widget.Toolbar>

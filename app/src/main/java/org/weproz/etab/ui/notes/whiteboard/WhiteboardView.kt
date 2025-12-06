@@ -12,9 +12,15 @@ class WhiteboardView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
-    private var drawColor = Color.BLACK
+    var drawColor = Color.BLACK
     private var strokeWidth = 10f
-    private var isEraser = false
+    var isEraser = false
+    
+    fun getStrokeWidth(): Float = strokeWidth
+    
+    fun setStrokeWidthGeneric(width: Float) {
+        strokeWidth = width
+    }
     
     // Grid Setup
     var gridType: GridType = GridType.NONE
@@ -73,16 +79,31 @@ class WhiteboardView @JvmOverloads constructor(
         canvas.save()
         canvas.concat(drawMatrix) // Apply zoom/pan transformation
         
+        // 1. Draw Grid (Background)
         drawGrid(canvas)
+
+        // 2. Draw Strokes (Ink Layer)
+        // We use a saveLayer to composite strokes separately.
+        // This ensures the ERASE mode only clears the ink, revealing the grid underneath.
+        val saveCount = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
 
         for (action in paths) {
             when (action) {
                 is DrawAction.Stroke -> {
-                    drawPaint.color = action.color
                     drawPaint.strokeWidth = action.strokeWidth
+                    if (action.isEraser) {
+                         drawPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+                         drawPaint.color = Color.TRANSPARENT // Color doesn't matter for CLEAR, but good practice
+                    } else {
+                         drawPaint.xfermode = null
+                         drawPaint.color = action.color
+                    }
                     canvas.drawPath(action.path, drawPaint)
                 }
                 is DrawAction.Text -> {
+                    // Text is always on top logic or part of ink?
+                    // If eraser should erase text, then text should be in this layer.
+                    // For now, let's treat text as ink.
                     textPaint.color = action.color
                     textPaint.textSize = action.textSize
                     canvas.drawText(action.text, action.x, action.y, textPaint)
@@ -92,13 +113,28 @@ class WhiteboardView @JvmOverloads constructor(
 
         // Draw current drawing path
         if (!currentPath.isEmpty) {
-            drawPaint.color = if (isEraser) Color.WHITE else drawColor
             drawPaint.strokeWidth = strokeWidth
+            if (isEraser) {
+                drawPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+                drawPaint.color = Color.TRANSPARENT
+            } else {
+                drawPaint.xfermode = null
+                drawPaint.color = drawColor
+            }
             canvas.drawPath(currentPath, drawPaint)
         }
-
-        canvas.restore()
+        
+        // Reset Paint
+        drawPaint.xfermode = null
+        
+        canvas.restoreToCount(saveCount) // Restore layer
+        canvas.restore() // Restore zoom/pan
     }
+
+    private var movingTextAction: DrawAction.Text? = null
+    private var isDraggingText = false
+    private var dragOffsetX = 0f
+    private var dragOffsetY = 0f
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         scaleDetector.onTouchEvent(event)
@@ -109,9 +145,15 @@ class WhiteboardView @JvmOverloads constructor(
         val canvasX = points[0]
         val canvasY = points[1]
 
-        // Two fingers -> Pan/Zoom, no drawing
+        // Two fingers -> Pan/Zoom
         if (event.pointerCount > 1) {
-            isPanning = true
+            isPanning = true 
+            // Reset text dragging if any
+            if (isDraggingText) {
+                isDraggingText = false
+                movingTextAction = null
+            }
+            
              // Handle panning
             when (event.actionMasked) {
                 MotionEvent.ACTION_MOVE -> {
@@ -146,34 +188,85 @@ class WhiteboardView @JvmOverloads constructor(
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                undonePaths.clear()
-                currentPath.reset()
-                currentPath.moveTo(canvasX, canvasY)
-                currentPoints.clear()
-                currentPoints.add(canvasX to canvasY)
+                // Check if hitting a text item (topmost first, so reverse iteration)
+                var hitText: DrawAction.Text? = null
+                val bounds = Rect()
+                
+                for (i in paths.lastIndex downTo 0) {
+                    val action = paths[i]
+                    if (action is DrawAction.Text) {
+                        textPaint.textSize = action.textSize
+                        textPaint.getTextBounds(action.text, 0, action.text.length, bounds)
+                        // Canvas drawText x,y is origin (bottom-left usually).
+                        // Bounds are relative to (0,0).
+                        // Actual rect:
+                        val textLeft = action.x + bounds.left
+                        val textTop = action.y + bounds.top
+                        val textRight = action.x + bounds.right
+                        val textBottom = action.y + bounds.bottom
+                        
+                        // Add some padding for easier touch
+                        val padding = 20f
+                        if (canvasX >= textLeft - padding && canvasX <= textRight + padding &&
+                            canvasY >= textTop - padding && canvasY <= textBottom + padding) {
+                            hitText = action
+                            break
+                        }
+                    }
+                }
+                
+                if (hitText != null) {
+                    isDraggingText = true
+                    movingTextAction = hitText
+                    dragOffsetX = canvasX - hitText.x
+                    dragOffsetY = canvasY - hitText.y
+                } else {
+                    isDraggingText = false
+                    movingTextAction = null
+                    
+                    // Start Drawing
+                    undonePaths.clear()
+                    currentPath.reset()
+                    currentPath.moveTo(canvasX, canvasY)
+                    currentPoints.clear()
+                    currentPoints.add(canvasX to canvasY)
+                }
                 invalidate()
             }
             MotionEvent.ACTION_MOVE -> {
-                val lastPoint = currentPoints.lastOrNull()
-                if (lastPoint != null) {
-                     val dx = abs(canvasX - lastPoint.first)
-                     val dy = abs(canvasY - lastPoint.second)
-                     if (dx >= 4 || dy >= 4) {
-                         currentPath.quadTo(lastPoint.first, lastPoint.second, (canvasX + lastPoint.first) / 2, (canvasY + lastPoint.second) / 2)
-                         currentPoints.add(canvasX to canvasY)
-                         invalidate()
-                     }
+                if (isDraggingText && movingTextAction != null) {
+                    movingTextAction!!.x = canvasX - dragOffsetX
+                    movingTextAction!!.y = canvasY - dragOffsetY
+                    invalidate()
+                } else {
+                    // Drawing
+                    val lastPoint = currentPoints.lastOrNull()
+                    if (lastPoint != null) {
+                        val dx = abs(canvasX - lastPoint.first)
+                        val dy = abs(canvasY - lastPoint.second)
+                        if (dx >= 4 || dy >= 4) {
+                            currentPath.quadTo(lastPoint.first, lastPoint.second, (canvasX + lastPoint.first) / 2, (canvasY + lastPoint.second) / 2)
+                            currentPoints.add(canvasX to canvasY)
+                            invalidate()
+                        }
+                    }
                 }
             }
             MotionEvent.ACTION_UP -> {
-                currentPath.lineTo(canvasX, canvasY)
-                val finalPath = Path(currentPath)
-                val color = if (isEraser) Color.WHITE else drawColor // Simple eraser = white stroke
-                // Create copy of points
-                val pointsCopy = ArrayList(currentPoints)
-                paths.add(DrawAction.Stroke(finalPath, pointsCopy, color, strokeWidth))
-                currentPath.reset()
-                invalidate()
+                if (isDraggingText) {
+                    isDraggingText = false
+                    movingTextAction = null
+                } else {
+                    currentPath.lineTo(canvasX, canvasY)
+                    val finalPath = Path(currentPath)
+                    val captureEraser = isEraser 
+                    val color = if (captureEraser) Color.TRANSPARENT else drawColor 
+                    // Create copy of points
+                    val pointsCopy = ArrayList(currentPoints)
+                    paths.add(DrawAction.Stroke(finalPath, pointsCopy, color, strokeWidth, captureEraser))
+                    currentPath.reset()
+                    invalidate()
+                }
             }
         }
         return true

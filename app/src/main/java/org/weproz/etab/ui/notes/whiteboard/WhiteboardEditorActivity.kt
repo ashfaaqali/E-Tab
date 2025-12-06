@@ -63,41 +63,89 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     }
 
     private fun setupTools() {
-        binding.btnBack.setOnClickListener { onBackPressed() }
+        binding.toolbar.setNavigationOnClickListener { onBackPressed() }
 
-        binding.btnToolColor.setOnClickListener { showColorPickerDialog() }
-        binding.btnToolEraser.setOnClickListener { showEraserSizeDialog() }
+        binding.btnToolBrush.setOnClickListener { showBrushSettingsDialog() }
         binding.btnToolText.setOnClickListener { showAddTextDialog() }
         binding.btnToolGrid.setOnClickListener { showGridTypeDialog() }
         binding.btnToolUndo.setOnClickListener { binding.whiteboardView.undo() }
         binding.btnToolRedo.setOnClickListener { binding.whiteboardView.redo() }
     }
-    
-    private fun showColorPickerDialog() {
-        val colors = arrayOf("Black", "Red", "Blue", "Green")
-        val colorValues = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN)
+
+    private fun showBrushSettingsDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_brush_settings, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        val groupTool = dialogView.findViewById<android.widget.RadioGroup>(R.id.group_tool_type)
+        val radioPen = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_pen)
+        val radioEraser = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_eraser)
+        val containerColors = dialogView.findViewById<android.widget.LinearLayout>(R.id.container_colors)
+        val titleColor = dialogView.findViewById<android.widget.TextView>(R.id.title_color)
+        val seekSize = dialogView.findViewById<android.widget.SeekBar>(R.id.seek_size)
         
-        AlertDialog.Builder(this)
-            .setTitle("Select Color")
-            .setItems(colors) { _, which ->
-                binding.whiteboardView.setPenColor(colorValues[which])
-                updateActiveToolUI(binding.btnToolColor)
-            }
-            .show()
-    }
-    
-    private fun showEraserSizeDialog() {
-        val sizes = arrayOf("Small", "Medium", "Large")
-        val sizeValues = floatArrayOf(10f, 30f, 60f)
+        // Initial State
+        val isEraser = binding.whiteboardView.isEraser
+        if (isEraser) {
+            radioEraser.isChecked = true
+            containerColors.alpha = 0.5f // Greyed out
+            containerColors.isEnabled = false // Logic disable
+        } else {
+            radioPen.isChecked = true
+            containerColors.alpha = 1.0f
+        }
         
-        AlertDialog.Builder(this)
-            .setTitle("Eraser Size")
-            .setItems(sizes) { _, which ->
-                binding.whiteboardView.setEraser()
-                binding.whiteboardView.setEraserSize(sizeValues[which])
-                updateActiveToolUI(binding.btnToolEraser)
-            }
-            .show()
+        seekSize.progress = binding.whiteboardView.getStrokeWidth().toInt()
+        
+        groupTool.setOnCheckedChangeListener { _, checkedId ->
+             if (checkedId == R.id.radio_eraser) {
+                 binding.whiteboardView.setEraser()
+                 containerColors.alpha = 0.5f
+                 titleColor.alpha = 0.5f
+                 // Use loops or kotlin children to disable clicks if needed
+             } else {
+                 binding.whiteboardView.setPenColor(binding.whiteboardView.drawColor) // Reset to last color
+                 containerColors.alpha = 1.0f
+                 titleColor.alpha = 1.0f
+             }
+        }
+        
+        seekSize.setOnSeekBarChangeListener(object: android.widget.SeekBar.OnSeekBarChangeListener {
+             override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                 val size = progress.coerceAtLeast(1).toFloat()
+                 binding.whiteboardView.setStrokeWidthGeneric(size)
+             }
+             override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+             override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+        })
+        
+        // Colors
+        val colors = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.CYAN, Color.YELLOW)
+        for (color in colors) {
+             val view = android.view.View(this)
+             val params = android.widget.LinearLayout.LayoutParams(60, 60)
+             params.setMargins(8, 0, 8, 0)
+             view.layoutParams = params
+             view.setBackgroundColor(color)
+             
+             // Circular
+             val shape = android.graphics.drawable.GradientDrawable()
+             shape.shape = android.graphics.drawable.GradientDrawable.OVAL
+             shape.setColor(color)
+             shape.setStroke(2, Color.DKGRAY)
+             view.background = shape
+             
+             view.setOnClickListener {
+                 if (!radioEraser.isChecked) {
+                     binding.whiteboardView.setPenColor(color)
+                     dialog.dismiss()
+                 }
+             }
+             containerColors.addView(view)
+        }
+        
+        dialog.show()
     }
 
     private fun showGridTypeDialog() {
@@ -113,12 +161,8 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     }
     
     private fun updateActiveToolUI(activeButton: android.widget.ImageButton) {
-        // Reset backgrounds
-        binding.btnToolColor.setBackgroundColor(androidx.appcompat.R.attr.selectableItemBackgroundBorderless)
-        binding.btnToolEraser.setBackgroundColor(androidx.appcompat.R.attr.selectableItemBackgroundBorderless)
-        
-        // Set active background
-        activeButton.setBackgroundResource(R.drawable.bg_toolbar_tool)
+        // Unused now with single brush button? Or just highlight brush?
+        // Highlight logic can stay if needed, but for now we simplify.
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -164,18 +208,11 @@ class WhiteboardEditorActivity : AppCompatActivity() {
 
     private fun saveWhiteboard() {
         lifecycleScope.launch(Dispatchers.IO) {
-            val gson = Gson()
             val actions = binding.whiteboardView.getPaths()
+            val strokes = actions.filterIsInstance<DrawAction.Stroke>()
+            val texts = actions.filterIsInstance<DrawAction.Text>()
             
-            val serializableStrokes = actions.filterIsInstance<DrawAction.Stroke>().map { action ->
-                SerializableStroke(action.points, action.color, action.strokeWidth) 
-            }
-            val serializableTexts = actions.filterIsInstance<DrawAction.Text>().map { 
-                SerializableText(it.text, it.x, it.y, it.color, it.textSize)
-            }
-            val data = WhiteboardData(serializableStrokes, serializableTexts)
-            
-            val json = gson.toJson(data)
+            val json = WhiteboardSerializer.serialize(strokes, texts, binding.whiteboardView.gridType)
             
             val filename = "wb_${System.currentTimeMillis()}.json"
             
@@ -216,30 +253,11 @@ class WhiteboardEditorActivity : AppCompatActivity() {
                 if (!file.exists()) return@launch
                 
                 val json = file.readText()
-                val gson = Gson()
-                val data = gson.fromJson(json, WhiteboardData::class.java)
-                
-                val actions = mutableListOf<DrawAction>()
-                
-                // Reconstruct Strokes
-                data.strokes.forEach { strokeData ->
-                    val path = Path()
-                    if (strokeData.points.isNotEmpty()) {
-                        path.moveTo(strokeData.points[0].first, strokeData.points[0].second)
-                        for (i in 1 until strokeData.points.size) {
-                            path.lineTo(strokeData.points[i].first, strokeData.points[i].second)
-                        }
-                    }
-                    actions.add(DrawAction.Stroke(path, strokeData.points, strokeData.color, strokeData.strokeWidth))
-                }
-                
-                // Reconstruct Strings
-                data.texts.forEach { textData ->
-                    actions.add(DrawAction.Text(textData.text, textData.x, textData.y, textData.color, textData.textSize))
-                }
+                val parsedData = WhiteboardSerializer.deserialize(json)
                 
                 withContext(Dispatchers.Main) {
-                    binding.whiteboardView.loadPaths(actions)
+                    binding.whiteboardView.gridType = parsedData.gridType
+                    binding.whiteboardView.loadPaths(parsedData.actions)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
