@@ -9,7 +9,8 @@ import org.weproz.etab.data.local.WhiteboardEntity
 import org.weproz.etab.databinding.ItemWhiteboardBinding
 
 class WhiteboardAdapter(
-    private val onItemClick: (WhiteboardEntity) -> Unit
+    private val onItemClick: (WhiteboardEntity) -> Unit,
+    private val onItemLongClick: (WhiteboardEntity) -> Unit
 ) : ListAdapter<WhiteboardEntity, WhiteboardAdapter.ViewHolder>(DiffCallback) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -27,6 +28,10 @@ class WhiteboardAdapter(
             binding.textWbTitle.text = whiteboard.title
             // TODO: Load thumbnail using Glide/Coil or manual bitmap loading
              binding.root.setOnClickListener { onItemClick(whiteboard) }
+             binding.root.setOnLongClickListener {
+                 onItemLongClick(whiteboard)
+                 true
+             }
         }
     }
 

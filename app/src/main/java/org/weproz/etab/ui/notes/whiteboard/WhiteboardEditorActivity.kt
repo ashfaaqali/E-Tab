@@ -37,7 +37,14 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityWhiteboardEditorBinding.inflate(layoutInflater)
+        binding = ActivityWhiteboardEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+            val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
 
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -46,7 +53,7 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         currentTitle = intent.getStringExtra("whiteboard_title") ?: "New Whiteboard"
         dataPath = intent.getStringExtra("whiteboard_data_path") ?: ""
         
-        supportActionBar?.title = currentTitle
+        binding.toolbar.title = "" // Hide title as per requirement
 
         setupTools()
         
@@ -56,12 +63,62 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     }
 
     private fun setupTools() {
-        binding.toolbar.setNavigationOnClickListener { onBackPressed() }
+        binding.btnBack.setOnClickListener { onBackPressed() }
 
-        binding.btnColorBlack.setOnClickListener { binding.whiteboardView.setPenColor(Color.BLACK) }
-        binding.btnColorRed.setOnClickListener { binding.whiteboardView.setPenColor(Color.RED) }
-        binding.btnColorBlue.setOnClickListener { binding.whiteboardView.setPenColor(Color.BLUE) }
-        binding.btnEraser.setOnClickListener { binding.whiteboardView.setEraser() }
+        binding.btnToolColor.setOnClickListener { showColorPickerDialog() }
+        binding.btnToolEraser.setOnClickListener { showEraserSizeDialog() }
+        binding.btnToolText.setOnClickListener { showAddTextDialog() }
+        binding.btnToolGrid.setOnClickListener { showGridTypeDialog() }
+        binding.btnToolUndo.setOnClickListener { binding.whiteboardView.undo() }
+        binding.btnToolRedo.setOnClickListener { binding.whiteboardView.redo() }
+    }
+    
+    private fun showColorPickerDialog() {
+        val colors = arrayOf("Black", "Red", "Blue", "Green")
+        val colorValues = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN)
+        
+        AlertDialog.Builder(this)
+            .setTitle("Select Color")
+            .setItems(colors) { _, which ->
+                binding.whiteboardView.setPenColor(colorValues[which])
+                updateActiveToolUI(binding.btnToolColor)
+            }
+            .show()
+    }
+    
+    private fun showEraserSizeDialog() {
+        val sizes = arrayOf("Small", "Medium", "Large")
+        val sizeValues = floatArrayOf(10f, 30f, 60f)
+        
+        AlertDialog.Builder(this)
+            .setTitle("Eraser Size")
+            .setItems(sizes) { _, which ->
+                binding.whiteboardView.setEraser()
+                binding.whiteboardView.setEraserSize(sizeValues[which])
+                updateActiveToolUI(binding.btnToolEraser)
+            }
+            .show()
+    }
+
+    private fun showGridTypeDialog() {
+        val types = arrayOf("None", "Dot", "Square", "Ruled")
+        val typeValues = arrayOf(GridType.NONE, GridType.DOT, GridType.SQUARE, GridType.RULED)
+        
+        AlertDialog.Builder(this)
+            .setTitle("Select Grid Type")
+            .setItems(types) { _, which ->
+                binding.whiteboardView.gridType = typeValues[which]
+            }
+            .show()
+    }
+    
+    private fun updateActiveToolUI(activeButton: android.widget.ImageButton) {
+        // Reset backgrounds
+        binding.btnToolColor.setBackgroundColor(androidx.appcompat.R.attr.selectableItemBackgroundBorderless)
+        binding.btnToolEraser.setBackgroundColor(androidx.appcompat.R.attr.selectableItemBackgroundBorderless)
+        
+        // Set active background
+        activeButton.setBackgroundResource(R.drawable.bg_toolbar_tool)
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -71,24 +128,12 @@ class WhiteboardEditorActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.action_undo -> {
-                binding.whiteboardView.undo()
-                true
-            }
-            R.id.action_redo -> {
-                binding.whiteboardView.redo()
-                true
-            }
-            R.id.action_text -> {
-                showAddTextDialog()
-                true
-            }
             R.id.action_save_pdf -> {
                 saveAsPdf()
                 true
             }
-            R.id.action_rename -> {
-                showRenameDialog()
+            R.id.action_save_image -> {
+                saveAsImage()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -110,19 +155,7 @@ class WhiteboardEditorActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showRenameDialog() {
-        val editText = EditText(this)
-        editText.setText(currentTitle)
-        AlertDialog.Builder(this)
-            .setTitle("Rename Whiteboard")
-            .setView(editText)
-            .setPositiveButton("Rename") { _, _ ->
-                currentTitle = editText.text.toString()
-                supportActionBar?.title = currentTitle
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
+    /* Rename moved to List Long Press */
 
     override fun onBackPressed() {
         saveWhiteboard()
@@ -145,12 +178,18 @@ class WhiteboardEditorActivity : AppCompatActivity() {
             val json = gson.toJson(data)
             
             val filename = "wb_${System.currentTimeMillis()}.json"
-            val file = File(filesDir, filename) // Save internal private storage
-            // if editing, overwrite existing file if path known? Logic simplified for new files.
             
-            // Actually, correct logic:
-            val actualFile = if (dataPath.isNotEmpty()) File(dataPath) else File(filesDir, "wb_${System.currentTimeMillis()}.json")
+            // Determine file to write to
+            val actualFile = if (dataPath.isNotEmpty()) {
+                File(dataPath)
+            } else {
+                File(filesDir, filename)
+            }
+            
             FileOutputStream(actualFile).use { it.write(json.toByteArray()) }
+            
+            // Update dataPath reference for subsequent saves in this session
+            dataPath = actualFile.absolutePath
 
             // Save Entity
             val dao = AppDatabase.getDatabase(this@WhiteboardEditorActivity).whiteboardDao()
@@ -170,9 +209,45 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         }
     }
     
-    // Placeholder loading
     private fun loadWhiteboardData() {
-        // TODO: Implement loading from JSON
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val file = File(dataPath)
+                if (!file.exists()) return@launch
+                
+                val json = file.readText()
+                val gson = Gson()
+                val data = gson.fromJson(json, WhiteboardData::class.java)
+                
+                val actions = mutableListOf<DrawAction>()
+                
+                // Reconstruct Strokes
+                data.strokes.forEach { strokeData ->
+                    val path = Path()
+                    if (strokeData.points.isNotEmpty()) {
+                        path.moveTo(strokeData.points[0].first, strokeData.points[0].second)
+                        for (i in 1 until strokeData.points.size) {
+                            path.lineTo(strokeData.points[i].first, strokeData.points[i].second)
+                        }
+                    }
+                    actions.add(DrawAction.Stroke(path, strokeData.points, strokeData.color, strokeData.strokeWidth))
+                }
+                
+                // Reconstruct Strings
+                data.texts.forEach { textData ->
+                    actions.add(DrawAction.Text(textData.text, textData.x, textData.y, textData.color, textData.textSize))
+                }
+                
+                withContext(Dispatchers.Main) {
+                    binding.whiteboardView.loadPaths(actions)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@WhiteboardEditorActivity, "Failed to load whiteboard", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun saveAsPdf() {
@@ -207,6 +282,29 @@ class WhiteboardEditorActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                    Toast.makeText(this@WhiteboardEditorActivity, "Failed to save PDF: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
+            }
+            }
+        }
+
+    private fun saveAsImage() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val bitmap = createBitmapFromView()
+                val imagesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                val imageFile = File(imagesDir, "${currentTitle.replace(" ", "_")}.png")
+                
+                FileOutputStream(imageFile).use { 
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) 
+                }
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@WhiteboardEditorActivity, "Saved Image: ${imageFile.absolutePath}", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                 e.printStackTrace()
+                 withContext(Dispatchers.Main) {
+                    Toast.makeText(this@WhiteboardEditorActivity, "Failed to save Image: ${e.message}", Toast.LENGTH_SHORT).show()
+                 }
             }
         }
     }

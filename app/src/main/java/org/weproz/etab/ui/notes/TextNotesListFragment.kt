@@ -29,14 +29,53 @@ class TextNotesListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        val adapter = TextNoteAdapter { note ->
-            val intent = android.content.Intent(requireContext(), NoteEditorActivity::class.java).apply {
-                putExtra("note_id", note.id)
-                putExtra("note_title", note.title)
-                putExtra("note_content", note.content)
+        val repo = org.weproz.etab.data.repository.NoteRepository(requireContext())
+
+        val adapter = TextNoteAdapter(
+            onItemClick = { note ->
+                val intent = android.content.Intent(requireContext(), NoteEditorActivity::class.java).apply {
+                    putExtra("note_id", note.id)
+                    putExtra("note_title", note.title)
+                    putExtra("note_content", note.content)
+                }
+                startActivity(intent)
+            },
+            onItemLongClick = { note ->
+                val options = arrayOf("Rename", "Delete")
+                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setItems(options) { _, which ->
+                        when (which) {
+                            0 -> { // Rename
+                                val input = android.widget.EditText(requireContext())
+                                input.setText(note.title)
+                                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                    .setTitle("Rename Note")
+                                    .setView(input)
+                                    .setPositiveButton("Rename") { _, _ ->
+                                        viewLifecycleOwner.lifecycleScope.launch {
+                                            repo.renameTextNote(note, input.text.toString())
+                                        }
+                                    }
+                                    .setNegativeButton("Cancel", null)
+                                    .show()
+                            }
+                            1 -> { // Delete
+                                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                    .setTitle("Delete Note")
+                                    .setMessage("Are you sure you want to delete '${note.title}'?")
+                                    .setPositiveButton("Delete") { _, _ ->
+                                        viewLifecycleOwner.lifecycleScope.launch {
+                                            repo.deleteTextNote(note)
+                                        }
+                                    }
+                                    .setNegativeButton("Cancel", null)
+                                    .show()
+                            }
+                        }
+                    }
+                    .show()
             }
-            startActivity(intent)
-        }
+        )
         binding.recyclerTextNotes.adapter = adapter
 
         viewLifecycleOwner.lifecycleScope.launch {

@@ -1,26 +1,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_undo"
-        android:title="Undo"
-        android:icon="@drawable/ic_undo"
-        app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/action_redo"
-        android:title="Redo"
-        android:icon="@drawable/ic_redo"
-        app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/action_text"
-        android:title="Add Text"
-        android:icon="@drawable/ic_text_fields"
-        app:showAsAction="ifRoom" />
-    <item
         android:id="@+id/action_save_pdf"
         android:title="Save as PDF"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_rename"
-        android:title="Rename"
+        android:id="@+id/action_save_image"
+        android:title="Save as Image"
         app:showAsAction="never" />
 </menu>

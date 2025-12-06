@@ -9,7 +9,8 @@ import org.weproz.etab.data.local.TextNoteEntity
 import org.weproz.etab.databinding.ItemTextNoteBinding
 
 class TextNoteAdapter(
-    private val onItemClick: (TextNoteEntity) -> Unit
+    private val onItemClick: (TextNoteEntity) -> Unit,
+    private val onItemLongClick: (TextNoteEntity) -> Unit
 ) : ListAdapter<TextNoteEntity, TextNoteAdapter.ViewHolder>(DiffCallback) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -27,6 +28,10 @@ class TextNoteAdapter(
             binding.textNoteTitle.text = note.title
             binding.textNotePreview.text = note.content
             binding.root.setOnClickListener { onItemClick(note) }
+            binding.root.setOnLongClickListener { 
+                onItemLongClick(note)
+                true
+            }
         }
     }
 
