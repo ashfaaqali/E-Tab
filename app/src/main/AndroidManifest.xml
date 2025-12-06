@@ -26,6 +26,14 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.search.SearchActivity" />
+        <activity
+            android:name=".ui.notes.NoteEditorActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ui.notes.whiteboard.WhiteboardEditorActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.reader.ReaderActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.ETab.Fullscreen"/>

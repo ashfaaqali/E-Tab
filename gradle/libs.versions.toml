@@ -14,6 +14,7 @@ nav = "2.8.0"
 coroutines = "1.7.3"
 epublib = "3.1"
 jsoup = "1.17.2"
+gson = "2.10.1"
 ksp = "2.0.21-1.0.27"
 
 [libraries]
@@ -33,6 +34,7 @@ androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 epublib = { group = "com.positiondev.epublib", name = "epublib-core", version.ref = "epublib" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

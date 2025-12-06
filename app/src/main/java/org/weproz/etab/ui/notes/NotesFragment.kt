@@ -5,6 +5,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.viewpager2.adapter.FragmentStateAdapter
+import com.google.android.material.tabs.TabLayoutMediator
 import org.weproz.etab.databinding.FragmentNotesBinding
 
 class NotesFragment : Fragment() {
@@ -21,8 +23,35 @@ class NotesFragment : Fragment() {
         return binding.root
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
+        val adapter = NotesPagerAdapter(this)
+        binding.pager.adapter = adapter
+
+        TabLayoutMediator(binding.tabLayout, binding.pager) { tab, position ->
+            tab.text = when (position) {
+                0 -> "Text Notes"
+                1 -> "Whiteboard"
+                else -> null
+            }
+        }.attach()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    class NotesPagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
+        override fun getItemCount(): Int = 2
+
+        override fun createFragment(position: Int): Fragment {
+            return when (position) {
+                0 -> TextNotesListFragment()
+                1 -> WhiteboardListFragment()
+                else -> throw IllegalStateException("Invalid position $position")
+            }
+        }
     }
 }

@@ -63,6 +63,7 @@ dependencies {
         exclude(group = "xmlpull", module = "xmlpull")
     }
     implementation(libs.jsoup)
+    implementation(libs.gson)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

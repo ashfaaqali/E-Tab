@@ -1,0 +1,3 @@
+// Note: In a real project we would add Gson to build.gradle.
+// For now, I will assume Gson is available or I should add it.
+// Checking build.gradle...

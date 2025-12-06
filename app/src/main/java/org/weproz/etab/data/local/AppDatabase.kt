@@ -9,9 +9,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [HighlightEntity::class], version = 2, exportSchema = false)
+@Database(entities = [HighlightEntity::class, TextNoteEntity::class, WhiteboardEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun highlightDao(): HighlightDao
+    abstract fun textNoteDao(): TextNoteDao
+    abstract fun whiteboardDao(): WhiteboardDao
 
     companion object {
         @Volatile
@@ -24,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "etab_database"
                 )
+                .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
                 instance
