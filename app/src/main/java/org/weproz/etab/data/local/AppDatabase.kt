@@ -9,11 +9,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [HighlightEntity::class, TextNoteEntity::class, WhiteboardEntity::class], version = 3, exportSchema = false)
+@Database(entities = [HighlightEntity::class, TextNoteEntity::class, WhiteboardEntity::class, BookEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun highlightDao(): HighlightDao
     abstract fun textNoteDao(): TextNoteDao
     abstract fun whiteboardDao(): WhiteboardDao
+    abstract fun bookDao(): BookDao
 
     companion object {
         @Volatile

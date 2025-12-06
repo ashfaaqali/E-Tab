@@ -47,6 +47,11 @@ class ReaderActivity : AppCompatActivity() {
 
         if (bookPath != null) {
             loadBook(bookPath!!)
+            // Update last opened time
+            lifecycleScope.launch(Dispatchers.IO) {
+                val dao = AppDatabase.getDatabase(this@ReaderActivity).bookDao()
+                dao.updateLastOpened(bookPath!!, System.currentTimeMillis())
+            }
         } else {
             Toast.makeText(this, "Error loading book", Toast.LENGTH_SHORT).show()
             finish()
