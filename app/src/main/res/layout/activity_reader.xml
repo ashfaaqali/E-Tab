@@ -23,7 +23,18 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/whiteboard_container"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/webview" />
+
     <LinearLayout
+        android:id="@+id/controls_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -43,6 +54,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Next" />
+
+        <ImageButton
+            android:id="@+id/btn_notes_toggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:src="@drawable/ic_notes"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            app:tint="@android:color/black"/>
 
     </LinearLayout>
 

@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import nl.siegmann.epublib.epub.EpubReader
+import org.weproz.etab.R
 import org.weproz.etab.data.local.AppDatabase
 import org.weproz.etab.data.local.HighlightEntity
 import org.weproz.etab.databinding.ActivityReaderBinding
@@ -69,6 +70,80 @@ class ReaderActivity : AppCompatActivity() {
                     displayChapter(currentChapterIndex + 1)
                 }
             }
+        }
+        
+        binding.btnNotesToggle.setOnClickListener {
+            toggleSplitView()
+        }
+    }
+    
+    private var isSplitView = false
+    
+    private fun toggleSplitView() {
+        if (isSplitView) {
+            // Restore full screen
+            binding.whiteboardContainer.visibility = View.GONE
+            
+            val params = binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            params.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            params.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            params.matchConstraintPercentHeight = 1.0f
+            params.matchConstraintPercentWidth = 1.0f
+            binding.webview.layoutParams = params
+            
+            isSplitView = false
+        } else {
+            // Split screen (Vertical)
+            if (bookPath != null) {
+                val bookId = bookPath.hashCode()
+                val notesPath = java.io.File(getExternalFilesDir(null), "wb_book_$bookId.json").absolutePath
+                
+                val fragment = supportFragmentManager.findFragmentById(R.id.whiteboard_container)
+                if (fragment == null) {
+                     val newFragment = org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment.newInstance(notesPath)
+                     supportFragmentManager.beginTransaction()
+                         .replace(R.id.whiteboard_container, newFragment)
+                         .commit()
+                }
+            }
+            
+            binding.whiteboardContainer.visibility = View.VISIBLE
+            
+            val webViewParams = binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            val containerParams = binding.whiteboardContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            
+            // WebView: Top half
+            webViewParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            webViewParams.bottomToTop = R.id.whiteboard_container
+            webViewParams.matchConstraintPercentHeight = 0.5f
+            webViewParams.width = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
+            webViewParams.matchConstraintPercentWidth = 1.0f
+
+            // Container: Bottom half
+            containerParams.topToBottom = R.id.webview
+            containerParams.bottomToTop = R.id.controls_container // Avoid overlapping controls
+            containerParams.matchConstraintPercentHeight = 0.5f // Ideally this + webview = 100% of parent, but controls take space?
+            // If we anchor to controls, percent height might conflict if parent height != (webview + container + controls).
+            // Safer: Use Weights or set percent to 0.45?
+            // Let's us Weights logic if possible? 
+            // Or simpler: WebView Height = 0dp, Weight = 1. Container Height = 0dp, Weight = 1.
+            // Chain: WebView Top->Parent, WebView Bottom->Container Top.
+            // Container Top->WebView Bottom, Container Bottom->Controls Top.
+            // This is a Vertical Chain.
+            // Let's try manual constraints for typical split without relying on chains if complex.
+            // 50% Top / 50% Bottom relative to parent is robust and predictable.
+            // Controls will match parent bottom. Whiteboard bottom will be 50% from top (middle) to 100% (bottom).
+            // So Whiteboard will act as background to controls. That is acceptable.
+            
+            containerParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            containerParams.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            containerParams.width = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
+            containerParams.matchConstraintPercentWidth = 1.0f
+            
+            binding.webview.layoutParams = webViewParams
+            binding.whiteboardContainer.layoutParams = containerParams
+            
+            isSplitView = true
         }
     }
 
