@@ -85,7 +85,9 @@ class WhiteboardView @JvmOverloads constructor(
         // 2. Draw Strokes (Ink Layer)
         // We use a saveLayer to composite strokes separately.
         // This ensures the ERASE mode only clears the ink, revealing the grid underneath.
-        val saveCount = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
+        // passing null as bounds ensures it uses the entire current clip (visible area),
+        // which accounts for the zoom/pan matrix applied above.
+        val saveCount = canvas.saveLayer(null, null)
 
         for (action in paths) {
             when (action) {
@@ -342,9 +344,9 @@ class WhiteboardView @JvmOverloads constructor(
         
         val gridSize = 100f // Gap
         
-        // Snap start to grid
-        val startX = (left / gridSize).toInt() * gridSize
-        val startY = (top / gridSize).toInt() * gridSize
+        // Snap start to grid (use floor to handle negative coordinates text correctly)
+        val startX = kotlin.math.floor(left / gridSize).toInt() * gridSize
+        val startY = kotlin.math.floor(top / gridSize).toInt() * gridSize
         
         when (gridType) {
             GridType.DOT -> {
