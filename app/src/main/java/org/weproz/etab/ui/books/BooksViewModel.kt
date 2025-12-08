@@ -29,9 +29,7 @@ class BooksViewModel(application: Application) : AndroidViewModel(application) {
         repository = BookRepository(application, database.bookDao())
         
         // Initial sync
-        viewModelScope.launch {
-            repository.syncBooks()
-        }
+        refresh()
         
         // Observe data based on tab selection
         viewModelScope.launch {
@@ -40,6 +38,12 @@ class BooksViewModel(application: Application) : AndroidViewModel(application) {
             }.collect {
                 _books.value = it
             }
+        }
+    }
+    
+    fun refresh() {
+        viewModelScope.launch {
+            repository.syncBooks()
         }
     }
 

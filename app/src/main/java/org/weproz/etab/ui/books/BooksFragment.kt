@@ -79,14 +79,26 @@ class BooksFragment : Fragment() {
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
             if (isGranted) {
-                // ViewModel sync will handle it next time or we can trigger manual sync
-                // For now, simple resume will trigger flows if implemented robustly, 
-                // but our VM init blocks might have run already. 
-                // Let's trigger a re-check later if needed, but for now VM handles sync on init.
+                viewModel.refresh()
             } else {
                 Toast.makeText(requireContext(), "Permission needed to list books", Toast.LENGTH_SHORT).show()
             }
         }
+
+    override fun onResume() {
+        super.onResume()
+        if (hasStoragePermission()) {
+            viewModel.refresh()
+        }
+    }
+
+    private fun hasStoragePermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -132,8 +144,8 @@ class BooksFragment : Fragment() {
     }
 
     private fun checkPermissionAndLoad() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
+        if (!hasStoragePermission()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 try {
                     val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                     intent.addCategory("android.intent.category.DEFAULT")
@@ -144,17 +156,21 @@ class BooksFragment : Fragment() {
                     intent.action = Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
                     startActivityForResult(intent, 2296)
                 }
-            }
-        } else {
-            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            } else {
                 requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
+        } else {
+            viewModel.refresh()
         }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        // If coming back from permission screen, ViewModel streams will update automatically if repository works correctly.
+        if (requestCode == 2296) {
+            if (hasStoragePermission()) {
+                viewModel.refresh()
+            }
+        }
     }
 
     override fun onDestroyView() {
