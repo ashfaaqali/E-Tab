@@ -312,6 +312,9 @@ class WhiteboardView @JvmOverloads constructor(
     fun loadPaths(actions: List<DrawAction>) {
         paths.clear()
         paths.addAll(actions)
+        undonePaths.clear()
+        currentPath.reset()
+        currentPoints.clear()
         invalidate()
     }
     

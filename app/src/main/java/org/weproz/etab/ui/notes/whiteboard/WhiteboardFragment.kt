@@ -24,6 +24,10 @@ class WhiteboardFragment : Fragment() {
 
     private var dataPath: String? = null
     
+    // Multi-page support
+    private val pages = mutableListOf<ParsedPage>()
+    private var currentPageIndex = 0
+    
     companion object {
         private const val ARG_DATA_PATH = "arg_data_path"
 
@@ -41,6 +45,11 @@ class WhiteboardFragment : Fragment() {
         arguments?.let {
             dataPath = it.getString(ARG_DATA_PATH)
         }
+        
+        // Initialize with at least one empty page
+        if (pages.isEmpty()) {
+            pages.add(ParsedPage(emptyList(), GridType.NONE))
+        }
     }
 
     override fun onCreateView(
@@ -54,13 +63,18 @@ class WhiteboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupTools()
+        setupPageNavigation()
+        
         if (dataPath != null) {
             loadWhiteboardData()
+        } else {
+            updatePageIndicator()
         }
     }
 
     override fun onPause() {
         super.onPause()
+        saveCurrentPage()
         saveWhiteboard()
     }
 
@@ -75,9 +89,67 @@ class WhiteboardFragment : Fragment() {
             createNewDocument()
         }
     }
+    
+    private fun setupPageNavigation() {
+        binding.btnPrevPage.setOnClickListener {
+            if (currentPageIndex > 0) {
+                saveCurrentPage()
+                currentPageIndex--
+                loadCurrentPage()
+            }
+        }
+        
+        binding.btnNextPage.setOnClickListener {
+            if (currentPageIndex < pages.size - 1) {
+                saveCurrentPage()
+                currentPageIndex++
+                loadCurrentPage()
+            }
+        }
+        
+        binding.btnAddPage.setOnClickListener {
+            saveCurrentPage()
+            pages.add(ParsedPage(emptyList(), GridType.NONE))
+            currentPageIndex = pages.size - 1
+            loadCurrentPage()
+            android.widget.Toast.makeText(requireContext(), "New page added", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun saveCurrentPage() {
+        if (currentPageIndex < pages.size) {
+            val actions = binding.whiteboardView.getPaths().toList() // Create a copy!
+            val gridType = binding.whiteboardView.gridType
+            pages[currentPageIndex] = ParsedPage(actions, gridType)
+            android.util.Log.d("WhiteboardFragment", "Saved page $currentPageIndex with ${actions.size} actions")
+        }
+    }
+    
+    private fun loadCurrentPage() {
+        if (currentPageIndex < pages.size) {
+            val page = pages[currentPageIndex]
+            binding.whiteboardView.gridType = page.gridType
+            binding.whiteboardView.loadPaths(page.actions)
+            updatePageIndicator()
+            android.util.Log.d("WhiteboardFragment", "Loaded page $currentPageIndex with ${page.actions.size} actions")
+        }
+    }
+    
+    private fun updatePageIndicator() {
+        val pageNum = currentPageIndex + 1
+        val totalPages = pages.size
+        binding.textPageIndicator.text = "Page $pageNum of $totalPages"
+        
+        binding.btnPrevPage.isEnabled = currentPageIndex > 0
+        binding.btnNextPage.isEnabled = currentPageIndex < pages.size - 1
+        
+        binding.btnPrevPage.alpha = if (currentPageIndex > 0) 1.0f else 0.3f
+        binding.btnNextPage.alpha = if (currentPageIndex < pages.size - 1) 1.0f else 0.3f
+    }
 
     private fun createNewDocument() {
         // Save current state first
+        saveCurrentPage()
         saveWhiteboard()
         
         // Create backup of current
@@ -95,8 +167,11 @@ class WhiteboardFragment : Fragment() {
                 }
                 
                 withContext(Dispatchers.Main) {
-                    // Clear canvas
-                    binding.whiteboardView.clear()
+                    // Clear all pages and start fresh
+                    pages.clear()
+                    pages.add(ParsedPage(emptyList(), GridType.NONE))
+                    currentPageIndex = 0
+                    loadCurrentPage()
                     android.widget.Toast.makeText(requireContext(), "New document created (Previous saved)", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
@@ -114,8 +189,6 @@ class WhiteboardFragment : Fragment() {
         val radioEraser = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_eraser)
         val containerColors = dialogView.findViewById<android.widget.LinearLayout>(R.id.container_colors)
         val seekSize = dialogView.findViewById<android.widget.SeekBar>(R.id.seek_size)
-        // Note: group_tool_type needs listener setup like in Activity if we want eraser logic to properly toggle UI state
-        // Keeping it simple for now, copying key logic.
         val groupTool = dialogView.findViewById<android.widget.RadioGroup>(R.id.group_tool_type)
         
         // Initial State
@@ -205,15 +278,12 @@ class WhiteboardFragment : Fragment() {
     fun saveWhiteboard() {
         if (dataPath == null) return
         
+        saveCurrentPage() // Ensure current page is saved
+        
         lifecycleScope.launch(Dispatchers.IO) {
-            val actions = binding.whiteboardView.getPaths()
-            val strokes = actions.filterIsInstance<DrawAction.Stroke>()
-            val texts = actions.filterIsInstance<DrawAction.Text>()
-            
-            val json = WhiteboardSerializer.serialize(strokes, texts, binding.whiteboardView.gridType)
+            val json = WhiteboardSerializer.serialize(pages)
             
             val file = File(dataPath!!)
-            // Create parent dirs if needed
             file.parentFile?.mkdirs()
             
             FileOutputStream(file).use { it.write(json.toByteArray()) }
@@ -225,17 +295,32 @@ class WhiteboardFragment : Fragment() {
             try {
                 if (dataPath == null) return@launch
                 val file = File(dataPath!!)
-                if (!file.exists()) return@launch
+                if (!file.exists()) {
+                    withContext(Dispatchers.Main) {
+                        updatePageIndicator()
+                    }
+                    return@launch
+                }
                 
                 val json = file.readText()
                 val parsedData = WhiteboardSerializer.deserialize(json)
                 
                 withContext(Dispatchers.Main) {
-                    binding.whiteboardView.gridType = parsedData.gridType
-                    binding.whiteboardView.loadPaths(parsedData.actions)
+                    pages.clear()
+                    pages.addAll(parsedData.pages)
+                    
+                    if (pages.isEmpty()) {
+                        pages.add(ParsedPage(emptyList(), GridType.NONE))
+                    }
+                    
+                    currentPageIndex = 0
+                    loadCurrentPage()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    updatePageIndicator()
+                }
             }
         }
     }

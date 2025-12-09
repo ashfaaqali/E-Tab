@@ -33,6 +33,10 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     private var whiteboardId: Long = -1
     private var currentTitle = "Untitled Whiteboard"
     private var dataPath: String = ""
+    
+    // Multi-page support
+    private val pages = mutableListOf<ParsedPage>()
+    private var currentPageIndex = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,11 +58,19 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         dataPath = intent.getStringExtra("whiteboard_data_path") ?: ""
         
         binding.toolbar.title = "" // Hide title as per requirement
+        
+        // Initialize with at least one empty page
+        if (pages.isEmpty()) {
+            pages.add(ParsedPage(emptyList(), GridType.NONE))
+        }
 
         setupTools()
+        setupPageNavigation()
         
         if (whiteboardId != -1L && dataPath.isNotEmpty()) {
             loadWhiteboardData()
+        } else {
+            updatePageIndicator()
         }
     }
 
@@ -70,6 +82,68 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         binding.btnToolGrid.setOnClickListener { showGridTypeDialog() }
         binding.btnToolUndo.setOnClickListener { binding.whiteboardView.undo() }
         binding.btnToolRedo.setOnClickListener { binding.whiteboardView.redo() }
+    }
+    
+    private fun setupPageNavigation() {
+        binding.btnPrevPage.setOnClickListener {
+            if (currentPageIndex > 0) {
+                saveCurrentPage()
+                currentPageIndex--
+                loadCurrentPage()
+            }
+        }
+        
+        binding.btnNextPage.setOnClickListener {
+            if (currentPageIndex < pages.size - 1) {
+                saveCurrentPage()
+                currentPageIndex++
+                loadCurrentPage()
+            }
+        }
+        
+        binding.btnAddPage.setOnClickListener {
+            android.util.Log.d("WhiteboardActivity", "ADD PAGE clicked: currently on page $currentPageIndex with ${binding.whiteboardView.getPaths().size} actions")
+            saveCurrentPage()
+            pages.add(ParsedPage(emptyList(), GridType.NONE))
+            currentPageIndex = pages.size - 1
+            android.util.Log.d("WhiteboardActivity", "Added new page, now have ${pages.size} pages, moved to page $currentPageIndex")
+            loadCurrentPage()
+            Toast.makeText(this, "New page added", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun saveCurrentPage() {
+        if (currentPageIndex < pages.size) {
+            val actions = binding.whiteboardView.getPaths().toList() // Create a copy!
+            val gridType = binding.whiteboardView.gridType
+            val oldPage = pages[currentPageIndex]
+            pages[currentPageIndex] = ParsedPage(actions, gridType)
+            android.util.Log.d("WhiteboardActivity", "Saved page $currentPageIndex: ${oldPage.actions.size} -> ${actions.size} actions, total pages: ${pages.size}")
+        } else {
+            android.util.Log.e("WhiteboardActivity", "ERROR: Cannot save page $currentPageIndex, pages.size=${pages.size}")
+        }
+    }
+    
+    private fun loadCurrentPage() {
+        if (currentPageIndex < pages.size) {
+            val page = pages[currentPageIndex]
+            binding.whiteboardView.gridType = page.gridType
+            binding.whiteboardView.loadPaths(page.actions)
+            updatePageIndicator()
+            android.util.Log.d("WhiteboardActivity", "Loaded page $currentPageIndex with ${page.actions.size} actions")
+        }
+    }
+    
+    private fun updatePageIndicator() {
+        val pageNum = currentPageIndex + 1
+        val totalPages = pages.size
+        binding.textPageIndicator.text = "Page $pageNum of $totalPages"
+        
+        binding.btnPrevPage.isEnabled = currentPageIndex > 0
+        binding.btnNextPage.isEnabled = currentPageIndex < pages.size - 1
+        
+        binding.btnPrevPage.alpha = if (currentPageIndex > 0) 1.0f else 0.3f
+        binding.btnNextPage.alpha = if (currentPageIndex < pages.size - 1) 1.0f else 0.3f
     }
 
     private fun showBrushSettingsDialog() {
@@ -207,12 +281,10 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     }
 
     private fun saveWhiteboard() {
+        saveCurrentPage() // Ensure current page is saved
+        
         lifecycleScope.launch(Dispatchers.IO) {
-            val actions = binding.whiteboardView.getPaths()
-            val strokes = actions.filterIsInstance<DrawAction.Stroke>()
-            val texts = actions.filterIsInstance<DrawAction.Text>()
-            
-            val json = WhiteboardSerializer.serialize(strokes, texts, binding.whiteboardView.gridType)
+            val json = WhiteboardSerializer.serialize(pages)
             
             val filename = "wb_${System.currentTimeMillis()}.json"
             
@@ -256,8 +328,15 @@ class WhiteboardEditorActivity : AppCompatActivity() {
                 val parsedData = WhiteboardSerializer.deserialize(json)
                 
                 withContext(Dispatchers.Main) {
-                    binding.whiteboardView.gridType = parsedData.gridType
-                    binding.whiteboardView.loadPaths(parsedData.actions)
+                    pages.clear()
+                    pages.addAll(parsedData.pages)
+                    
+                    if (pages.isEmpty()) {
+                        pages.add(ParsedPage(emptyList(), GridType.NONE))
+                    }
+                    
+                    currentPageIndex = 0
+                    loadCurrentPage()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

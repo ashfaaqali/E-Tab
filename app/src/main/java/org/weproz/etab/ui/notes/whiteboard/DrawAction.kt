@@ -27,8 +27,19 @@ data class SerializableText(
     val textSize: Float
 )
 
-data class WhiteboardData(
+data class SerializablePage(
     val strokes: List<SerializableStroke> = emptyList(),
     val texts: List<SerializableText> = emptyList(),
     val gridType: String = "NONE"
+)
+
+data class WhiteboardData(
+    // Legacy support (optional if pages list is empty)
+    val strokes: List<SerializableStroke> = emptyList(),
+    val texts: List<SerializableText> = emptyList(),
+    val gridType: String = "NONE",
+    
+    // Multi-page support
+    val version: Int = 1,
+    val pages: List<SerializablePage> = emptyList()
 )
