@@ -21,7 +21,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.weproz.etab.data.local.BookEntity
+import org.weproz.etab.data.local.BookType
 import org.weproz.etab.databinding.FragmentBooksBinding
+import org.weproz.etab.ui.reader.PdfReaderActivity
 import org.weproz.etab.ui.reader.ReaderActivity
 import java.io.File
 
@@ -35,7 +37,11 @@ class BooksFragment : Fragment() {
     private val adapter = BookAdapter(
         onBookClick = { book ->
             viewModel.onBookOpened(book)
-            val intent = Intent(requireContext(), ReaderActivity::class.java)
+            // Route to appropriate reader based on book type
+            val intent = when (book.type) {
+                BookType.PDF -> Intent(requireContext(), PdfReaderActivity::class.java)
+                BookType.EPUB -> Intent(requireContext(), ReaderActivity::class.java)
+            }
             intent.putExtra("book_path", book.path)
             startActivity(intent)
         },

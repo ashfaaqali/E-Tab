@@ -40,6 +40,9 @@
         <activity android:name=".ui.reader.ReaderActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.ETab"/>
+        <activity android:name=".ui.reader.PdfReaderActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.ETab"/>
     </application>
 
 </manifest>

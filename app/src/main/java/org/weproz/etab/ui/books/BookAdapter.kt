@@ -1,13 +1,25 @@
 package org.weproz.etab.ui.books
 
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.weproz.etab.R
 import org.weproz.etab.data.local.BookEntity
-import kotlinx.coroutines.launch
+import org.weproz.etab.data.local.BookType
+import java.io.File
+import java.io.FileInputStream
 
 class BookAdapter(
     private val onBookClick: (BookEntity) -> Unit,
@@ -36,8 +48,8 @@ class BookAdapter(
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val titleView: TextView = itemView.findViewById(R.id.text_book_title)
         private val lastOpenedView: TextView = itemView.findViewById(R.id.text_last_opened)
-        private val coverView: android.widget.ImageView = itemView.findViewById(R.id.image_cover)
-        private val favButton: android.widget.ImageButton = itemView.findViewById(R.id.btn_favorite)
+        private val coverView: ImageView = itemView.findViewById(R.id.image_cover)
+        private val favButton: ImageButton = itemView.findViewById(R.id.btn_favorite)
 
         fun bind(book: BookEntity) {
             titleView.text = book.title
@@ -56,7 +68,7 @@ class BookAdapter(
             }
             
             if (book.isFavorite) {
-                favButton.setColorFilter(android.graphics.Color.parseColor("#FFD700")) // Gold
+                favButton.setColorFilter(Color.parseColor("#FFD700")) // Gold
                 favButton.setImageResource(android.R.drawable.btn_star_big_on)
             } else {
                 favButton.clearColorFilter()
@@ -70,32 +82,79 @@ class BookAdapter(
                 true
             }
             
-            // Basic Cover Loading
+            // Cover loading based on book type
             coverView.setImageDrawable(null) // Reset
-            coverView.tag = book.path // Tag for concurrency check if we were using async
+            coverView.tag = book.path // Tag for concurrency check
             
-            // For MVP: Simple placeholder or load logic. 
-            // Loading cover from EPUB is expensive. We should do it async.
-            // Using a simple drawable for now as default.
-            coverView.setBackgroundColor(if (adapterPosition % 2 == 0) android.graphics.Color.LTGRAY else android.graphics.Color.GRAY)
-            
+            when (book.type) {
+                BookType.PDF -> {
+                    // Use a distinctive PDF color
+                    coverView.setBackgroundColor(Color.parseColor("#E53935")) // Red for PDF
+                    loadPdfCoverAsync(book.path, coverView)
+                }
+                BookType.EPUB -> {
+                    // Use EPUB color scheme
+                    val position = bindingAdapterPosition
+                    coverView.setBackgroundColor(
+                        if (position % 2 == 0) Color.parseColor("#1E88E5") // Blue
+                        else Color.parseColor("#43A047") // Green
+                    )
+                    loadEpubCoverAsync(book.path, coverView)
+                }
+            }
         }
         
-        private fun loadCoverAsync(path: String, target: android.widget.ImageView) {
-            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        private fun loadPdfCoverAsync(path: String, target: ImageView) {
+            GlobalScope.launch(Dispatchers.IO) {
+                try {
+                    val file = File(path)
+                    if (!file.exists()) return@launch
+                    
+                    val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                    val renderer = PdfRenderer(fd)
+                    
+                    if (renderer.pageCount > 0) {
+                        val page = renderer.openPage(0)
+                        
+                        // Create thumbnail bitmap
+                        val width = 200
+                        val height = (200f * page.height / page.width).toInt()
+                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        bitmap.eraseColor(Color.WHITE)
+                        
+                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        page.close()
+                        
+                        withContext(Dispatchers.Main) {
+                            if (target.tag == path) {
+                                target.setImageBitmap(bitmap)
+                                target.scaleType = ImageView.ScaleType.CENTER_CROP
+                            }
+                        }
+                    }
+                    
+                    renderer.close()
+                    fd.close()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+        
+        private fun loadEpubCoverAsync(path: String, target: ImageView) {
+            GlobalScope.launch(Dispatchers.IO) {
                 try {
                     val epubReader = nl.siegmann.epublib.epub.EpubReader()
-                    // Using readEpub instead of readEpubLazy which caused compilation issues
-                    val book = epubReader.readEpub(java.io.FileInputStream(path))
+                    val book = epubReader.readEpub(FileInputStream(path))
                     val coverImage = book.coverImage
                     if (coverImage != null) {
-                         val bitmap = android.graphics.BitmapFactory.decodeStream(coverImage.inputStream)
-                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                             if (target.tag == path) {
-                                 target.setImageBitmap(bitmap)
-                                 target.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                             }
-                         }
+                        val bitmap = android.graphics.BitmapFactory.decodeStream(coverImage.inputStream)
+                        withContext(Dispatchers.Main) {
+                            if (target.tag == path) {
+                                target.setImageBitmap(bitmap)
+                                target.scaleType = ImageView.ScaleType.CENTER_CROP
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -104,3 +163,4 @@ class BookAdapter(
         }
     }
 }
+

@@ -4,12 +4,30 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverter
+import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [HighlightEntity::class, TextNoteEntity::class, WhiteboardEntity::class, BookEntity::class], version = 4, exportSchema = false)
+/**
+ * Type converters for Room to handle custom types
+ */
+class Converters {
+    @TypeConverter
+    fun fromBookType(value: BookType): String = value.name
+
+    @TypeConverter
+    fun toBookType(value: String): BookType = BookType.valueOf(value)
+}
+
+@Database(
+    entities = [HighlightEntity::class, TextNoteEntity::class, WhiteboardEntity::class, BookEntity::class],
+    version = 5,
+    exportSchema = false
+)
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun highlightDao(): HighlightDao
     abstract fun textNoteDao(): TextNoteDao
@@ -33,7 +51,6 @@ abstract class AppDatabase : RoomDatabase() {
                 instance
             }
         }
-
-
     }
 }
+

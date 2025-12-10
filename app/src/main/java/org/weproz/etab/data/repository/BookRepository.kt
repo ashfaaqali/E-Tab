@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.weproz.etab.data.local.BookDao
 import org.weproz.etab.data.local.BookEntity
+import org.weproz.etab.data.local.BookType
 import java.io.File
 
 class BookRepository(private val context: Context, private val bookDao: BookDao) {
@@ -15,7 +16,7 @@ class BookRepository(private val context: Context, private val bookDao: BookDao)
 
     suspend fun syncBooks() {
         withContext(Dispatchers.IO) {
-            val fileBooks = findEpubFiles()
+            val fileBooks = findBookFiles()
             
             // 1. Insert new books if they don't exist (IGNORE strategy handles duplicates)
             // But we want to preserve metadata if it exists.
@@ -62,7 +63,10 @@ class BookRepository(private val context: Context, private val bookDao: BookDao)
         }
     }
 
-    private fun findEpubFiles(): List<BookEntity> {
+    /**
+     * Finds all supported book files (EPUB and PDF) on the device
+     */
+    private fun findBookFiles(): List<BookEntity> {
         val books = mutableListOf<BookEntity>()
         val projection = arrayOf(
             MediaStore.Files.FileColumns.DATA,
@@ -70,8 +74,9 @@ class BookRepository(private val context: Context, private val bookDao: BookDao)
             MediaStore.Files.FileColumns.SIZE
         )
         
-        val selection = "${MediaStore.Files.FileColumns.DATA} LIKE ?"
-        val selectionArgs = arrayOf("%.epub")
+        // Query for both EPUB and PDF files
+        val selection = "${MediaStore.Files.FileColumns.DATA} LIKE ? OR ${MediaStore.Files.FileColumns.DATA} LIKE ?"
+        val selectionArgs = arrayOf("%.epub", "%.pdf")
 
         val cursor = context.contentResolver.query(
             MediaStore.Files.getContentUri("external"),
@@ -93,7 +98,13 @@ class BookRepository(private val context: Context, private val bookDao: BookDao)
                 
                 // Exclude hidden files or non-existent
                 if (File(path).exists()) {
-                     books.add(BookEntity(path, name, size))
+                    // Determine book type based on file extension
+                    val bookType = when {
+                        path.lowercase().endsWith(".pdf") -> BookType.PDF
+                        path.lowercase().endsWith(".epub") -> BookType.EPUB
+                        else -> BookType.EPUB // Default fallback
+                    }
+                    books.add(BookEntity(path, name, size, bookType))
                 }
             }
         }
