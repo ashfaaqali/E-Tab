@@ -11,8 +11,12 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.weproz.etab.R
+import org.weproz.etab.data.local.AppDatabase
+import org.weproz.etab.data.local.WhiteboardEntity
 import org.weproz.etab.databinding.FragmentWhiteboardEditorBinding
 import java.io.File
 import java.io.FileOutputStream
@@ -27,7 +31,10 @@ class WhiteboardFragment : Fragment() {
     // Multi-page support
     private val pages = mutableListOf<ParsedPage>()
     private var currentPageIndex = 0
-    
+
+    // Mutex to prevent concurrent saves causing duplicates
+    private val saveMutex = Mutex()
+
     companion object {
         private const val ARG_DATA_PATH = "arg_data_path"
 
@@ -280,13 +287,62 @@ class WhiteboardFragment : Fragment() {
         
         saveCurrentPage() // Ensure current page is saved
         
+        // Check if there's any content to save
+        val hasContent = pages.any { page -> page.actions.isNotEmpty() }
+        if (!hasContent) {
+            android.util.Log.d("WhiteboardFragment", "No content to save, skipping database save")
+            return
+        }
+
+        // Capture dataPath to avoid null issues in coroutine
+        val currentDataPath = dataPath ?: return
+
         lifecycleScope.launch(Dispatchers.IO) {
-            val json = WhiteboardSerializer.serialize(pages)
-            
-            val file = File(dataPath!!)
-            file.parentFile?.mkdirs()
-            
-            FileOutputStream(file).use { it.write(json.toByteArray()) }
+            // Use mutex to prevent concurrent saves causing race conditions
+            saveMutex.withLock {
+                val json = WhiteboardSerializer.serialize(pages)
+
+                val file = File(currentDataPath)
+                file.parentFile?.mkdirs()
+
+                FileOutputStream(file).use { it.write(json.toByteArray()) }
+
+                // Save to database using insertOrIgnore to prevent duplicates
+                try {
+                    val ctx = context ?: return@withLock
+                    val dao = AppDatabase.getDatabase(ctx).whiteboardDao()
+
+                    // First try to update if exists
+                    val existingWhiteboard = dao.getWhiteboardByDataPath(currentDataPath)
+
+                    if (existingWhiteboard != null) {
+                        // Already exists - just update timestamp
+                        dao.updateTimestampByDataPath(currentDataPath, System.currentTimeMillis())
+                        android.util.Log.d("WhiteboardFragment", "Updated existing whiteboard: ${existingWhiteboard.id}")
+                    } else {
+                        // New entry - use insertOrIgnore which won't fail on duplicate dataPath
+                        val count = dao.getWhiteboardCount()
+                        val title = "Untitled ${count + 1}"
+
+                        val newEntity = WhiteboardEntity(
+                            title = title,
+                            thumbnailPath = null,
+                            dataPath = currentDataPath,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        val id = dao.insertOrIgnore(newEntity)
+                        if (id != -1L) {
+                            android.util.Log.d("WhiteboardFragment", "Inserted new whiteboard: $id with title: $title")
+                        } else {
+                            // Insert was ignored (duplicate), just update timestamp
+                            dao.updateTimestampByDataPath(currentDataPath, System.currentTimeMillis())
+                            android.util.Log.d("WhiteboardFragment", "Insert ignored (duplicate), updated timestamp instead")
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("WhiteboardFragment", "Failed to save whiteboard to database", e)
+                }
+            }
         }
     }
     

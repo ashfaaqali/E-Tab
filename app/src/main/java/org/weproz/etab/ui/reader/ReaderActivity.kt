@@ -60,6 +60,15 @@ class ReaderActivity : AppCompatActivity() {
         setupNavigation()
     }
     
+    override fun onPause() {
+        super.onPause()
+        // Save whiteboard when activity is paused
+        if (isSplitView) {
+            val fragment = supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
+            fragment?.saveWhiteboard()
+        }
+    }
+
     private val hideNavHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val hideNavRunnable = Runnable {
         binding.btnOverlayPrev.animate().alpha(0f).setDuration(500).start()
@@ -148,6 +157,10 @@ class ReaderActivity : AppCompatActivity() {
     private fun toggleSplitView() {
         android.util.Log.d("ReaderActivity", "toggleSplitView: $isSplitView -> ${!isSplitView}")
         if (isSplitView) {
+            // Save whiteboard before closing
+            val fragment = supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
+            fragment?.saveWhiteboard()
+
             // Restore Full Screen
             binding.whiteboardContainer.visibility = View.GONE
             binding.splitHandle.visibility = View.GONE
@@ -163,10 +176,11 @@ class ReaderActivity : AppCompatActivity() {
             
             isSplitView = false
         } else {
-            // Split Screen
+            // Split Screen - create a NEW whiteboard each time
             if (bookPath != null) {
-                val bookId = bookPath.hashCode()
-                val notesPath = java.io.File(getExternalFilesDir(null), "wb_book_$bookId.json").absolutePath
+                // Use timestamp to create unique file path for each session
+                val timestamp = System.currentTimeMillis()
+                val notesPath = java.io.File(getExternalFilesDir(null), "wb_book_$timestamp.json").absolutePath
                 val newFragment = org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment.newInstance(notesPath)
                 supportFragmentManager.beginTransaction().replace(R.id.whiteboard_container, newFragment).commit()
             }

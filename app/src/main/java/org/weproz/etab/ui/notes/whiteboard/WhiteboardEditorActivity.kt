@@ -54,7 +54,7 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         whiteboardId = intent.getLongExtra("whiteboard_id", -1)
-        currentTitle = intent.getStringExtra("whiteboard_title") ?: "New Whiteboard"
+        currentTitle = intent.getStringExtra("whiteboard_title") ?: ""  // Empty means new whiteboard, will be set on save
         dataPath = intent.getStringExtra("whiteboard_data_path") ?: ""
         
         binding.toolbar.title = "" // Hide title as per requirement
@@ -302,16 +302,27 @@ class WhiteboardEditorActivity : AppCompatActivity() {
 
             // Save Entity
             val dao = AppDatabase.getDatabase(this@WhiteboardEditorActivity).whiteboardDao()
+
+            // Generate title if empty (new whiteboard)
+            val titleToSave = if (currentTitle.isEmpty()) {
+                val count = dao.getWhiteboardCount()
+                "Untitled ${count + 1}"
+            } else {
+                currentTitle
+            }
+
             val entity = WhiteboardEntity(
                 id = if (whiteboardId == -1L) 0 else whiteboardId,
-                title = currentTitle,
+                title = titleToSave,
                 thumbnailPath = null, // TODO: Generate thumbnail
                 dataPath = actualFile.absolutePath,
                 updatedAt = System.currentTimeMillis()
             )
             
             if (whiteboardId == -1L) {
-               dao.insert(entity)
+               val newId = dao.insert(entity)
+               whiteboardId = newId  // Update ID for subsequent saves
+               currentTitle = titleToSave  // Update title reference
             } else {
                dao.update(entity)
             }

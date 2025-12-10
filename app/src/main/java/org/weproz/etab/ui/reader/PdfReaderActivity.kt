@@ -169,6 +169,10 @@ class PdfReaderActivity : AppCompatActivity() {
     @SuppressLint("ClickableViewAccessibility")
     private fun toggleSplitView() {
         if (isSplitView) {
+            // Save whiteboard before closing
+            val fragment = supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
+            fragment?.saveWhiteboard()
+
             // Restore full screen
             binding.whiteboardContainer.visibility = View.GONE
             binding.splitHandle.visibility = View.GONE
@@ -182,10 +186,11 @@ class PdfReaderActivity : AppCompatActivity() {
 
             isSplitView = false
         } else {
-            // Split screen mode
+            // Split screen mode - create a NEW whiteboard each time
             if (pdfPath != null) {
-                val bookId = pdfPath.hashCode()
-                val notesPath = File(getExternalFilesDir(null), "wb_pdf_$bookId.json").absolutePath
+                // Use timestamp to create unique file path for each session
+                val timestamp = System.currentTimeMillis()
+                val notesPath = File(getExternalFilesDir(null), "wb_pdf_$timestamp.json").absolutePath
                 val newFragment = org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment.newInstance(notesPath)
                 supportFragmentManager.beginTransaction()
                     .replace(R.id.whiteboard_container, newFragment)
@@ -244,6 +249,15 @@ class PdfReaderActivity : AppCompatActivity() {
                 }
             }
             true
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Save whiteboard when activity is paused
+        if (isSplitView) {
+            val fragment = supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
+            fragment?.saveWhiteboard()
         }
     }
 
