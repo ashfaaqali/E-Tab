@@ -13,4 +13,7 @@ interface WordDao {
 
     @Query("SELECT * FROM entries ORDER BY RANDOM() LIMIT 1")
     suspend fun getRandomWord(): DictionaryEntry?
+
+    @Query("SELECT * FROM entries ORDER BY RANDOM() LIMIT 3")
+    suspend fun getRandomWords(): List<DictionaryEntry>
 }

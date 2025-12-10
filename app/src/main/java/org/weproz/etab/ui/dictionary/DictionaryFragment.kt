@@ -32,17 +32,33 @@ class DictionaryFragment : Fragment() {
             startActivity(Intent(requireContext(), SearchActivity::class.java))
         }
 
-        loadWordOfTheDay()
+        loadWordsOfTheDay()
     }
 
-    private fun loadWordOfTheDay() {
+    private fun loadWordsOfTheDay() {
         lifecycleScope.launch {
             val dao = org.weproz.etab.data.local.WordDatabase.getDatabase(requireContext()).wordDao()
-            val word = dao.getRandomWord()
-            word?.let {
-                binding.textWodWord.text = it.word
-                binding.textWodType.text = it.wordType
-                binding.textWodDefinition.text = it.definition
+            val words = dao.getRandomWords()
+
+            // Populate Card 1
+            words.getOrNull(0)?.let { word ->
+                binding.textWord1.text = word.word.replaceFirstChar { it.uppercase() }
+                binding.textType1.text = word.wordType
+                binding.textDefinition1.text = word.definition
+            }
+
+            // Populate Card 2
+            words.getOrNull(1)?.let { word ->
+                binding.textWord2.text = word.word.replaceFirstChar { it.uppercase() }
+                binding.textType2.text = word.wordType
+                binding.textDefinition2.text = word.definition
+            }
+
+            // Populate Card 3
+            words.getOrNull(2)?.let { word ->
+                binding.textWord3.text = word.word.replaceFirstChar { it.uppercase() }
+                binding.textType3.text = word.wordType
+                binding.textDefinition3.text = word.definition
             }
         }
     }
