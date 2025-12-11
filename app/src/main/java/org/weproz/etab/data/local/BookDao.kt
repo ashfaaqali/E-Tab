@@ -26,6 +26,12 @@ interface BookDao {
     @Query("UPDATE books SET lastOpened = :timestamp WHERE path = :path")
     suspend fun updateLastOpened(path: String, timestamp: Long)
 
+    @Query("UPDATE books SET lastReadPage = :page WHERE path = :path")
+    suspend fun updateLastReadPage(path: String, page: Int)
+
+    @Query("SELECT lastReadPage FROM books WHERE path = :path")
+    suspend fun getLastReadPage(path: String): Int?
+
     @Query("DELETE FROM books WHERE path = :path")
     suspend fun delete(path: String)
 }

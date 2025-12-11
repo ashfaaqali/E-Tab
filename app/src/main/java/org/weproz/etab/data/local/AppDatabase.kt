@@ -24,7 +24,7 @@ class Converters {
 
 @Database(
     entities = [HighlightEntity::class, TextNoteEntity::class, WhiteboardEntity::class, BookEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

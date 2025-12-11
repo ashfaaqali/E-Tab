@@ -146,6 +146,7 @@ class PdfReaderActivity : AppCompatActivity() {
         }
     }
 
+
     private fun updatePageIndicator(currentPage: Int, totalPages: Int) {
         binding.textPageIndicator.text = "Page $currentPage of $totalPages"
     }

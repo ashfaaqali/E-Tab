@@ -311,15 +311,25 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun loadBook(path: String) {
-        // ... (No change needed here)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 android.util.Log.d("ReaderActivity", "Loading book from: $path")
                 val inputStream = FileInputStream(path)
                 currentBook = EpubReader().readEpub(inputStream)
                 android.util.Log.d("ReaderActivity", "Book loaded. Title: ${currentBook?.title}, Spine size: ${currentBook?.spine?.size()}")
+
+                // Get last read chapter
+                val dao = AppDatabase.getDatabase(this@ReaderActivity).bookDao()
+                val lastReadChapter = dao.getLastReadPage(path) ?: 0
+
                 withContext(Dispatchers.Main) {
-                    displayChapter(0)
+                    val spineSize = currentBook?.spine?.size() ?: 0
+                    val chapterToOpen = if (lastReadChapter > 0 && lastReadChapter < spineSize) {
+                        lastReadChapter
+                    } else {
+                        0
+                    }
+                    displayChapter(chapterToOpen)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -339,6 +349,9 @@ class ReaderActivity : AppCompatActivity() {
                 android.util.Log.d("ReaderActivity", "Displaying chapter $index. Resource href: ${resource.href}, Size: ${resource.size}")
                 val rawContent = String(resource.data)
                 
+                // Save current chapter to database
+                saveLastReadChapter(index)
+
                 // Inject JS and CSS
                 val content = injectCustomContent(rawContent)
                 
@@ -357,6 +370,15 @@ class ReaderActivity : AppCompatActivity() {
             }
         } ?: run {
              android.util.Log.e("ReaderActivity", "Current book is null")
+        }
+    }
+
+    private fun saveLastReadChapter(chapter: Int) {
+        bookPath?.let { path ->
+            lifecycleScope.launch(Dispatchers.IO) {
+                val dao = AppDatabase.getDatabase(this@ReaderActivity).bookDao()
+                dao.updateLastReadPage(path, chapter)
+            }
         }
     }
 

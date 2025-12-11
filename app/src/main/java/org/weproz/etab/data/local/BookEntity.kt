@@ -19,5 +19,6 @@ data class BookEntity(
     val type: BookType = BookType.EPUB,
     val isFavorite: Boolean = false,
     val lastOpened: Long = 0,
-    val coverPath: String? = null
+    val coverPath: String? = null,
+    val lastReadPage: Int = 0  // Track last read page/chapter
 )
