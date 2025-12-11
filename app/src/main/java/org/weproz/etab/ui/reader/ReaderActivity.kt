@@ -179,7 +179,8 @@ class ReaderActivity : AppCompatActivity() {
             val params = binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
             params.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
             params.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            params.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            params.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            params.topToBottom = R.id.top_action_bar
             params.height = 0
             params.matchConstraintPercentHeight = 1.0f // Ensure full height logic works
             binding.webview.layoutParams = params
@@ -209,7 +210,8 @@ class ReaderActivity : AppCompatActivity() {
             val webParams = binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
             webParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
             webParams.bottomToTop = R.id.split_guideline
-            webParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            webParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            webParams.topToBottom = R.id.top_action_bar
             webParams.height = 0
             // webParams.matchConstraintPercentHeight = 1.0f // REMOVED to allow anchors to determine height
             binding.webview.layoutParams = webParams

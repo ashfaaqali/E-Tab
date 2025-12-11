@@ -63,11 +63,16 @@ class PdfViewerView @JvmOverloads constructor(
     private var translateX = 0f
     private var translateY = 0f
 
-    // Page dimensions
+    // Page dimensions (original PDF dimensions)
+    private var originalPageWidth = 0
+    private var originalPageHeight = 0
+
+    // Display dimensions (scaled to fit view)
     private var pageWidth = 0
     private var pageHeight = 0
     private var pageGapPx: Int = 0
     private var totalContentHeight = 0f
+    private var dimensionsCalculated = false
 
     // Touch handling
     private val scaleGestureDetector: ScaleGestureDetector
@@ -315,11 +320,11 @@ class PdfViewerView @JvmOverloads constructor(
             // Get dimensions from first page
             if (pageCount > 0) {
                 val page = pdfRenderer!!.openPage(0)
-                pageWidth = page.width
-                pageHeight = page.height
+                originalPageWidth = page.width
+                originalPageHeight = page.height
                 page.close()
                 
-                Log.d(TAG, "Page dimensions: ${pageWidth}x${pageHeight}")
+                Log.d(TAG, "Original page dimensions: ${originalPageWidth}x${originalPageHeight}")
             }
             
             // Reset view state
@@ -327,9 +332,18 @@ class PdfViewerView @JvmOverloads constructor(
             translateX = 0f
             translateY = 0f
             currentVisiblePage = 0
-            
-            // Request layout to calculate proper dimensions
-            requestLayout()
+            dimensionsCalculated = false
+
+            // If view already has size, calculate dimensions and render immediately
+            if (width > 0 && height > 0) {
+                calculateDimensions()
+                renderVisiblePages()
+            } else {
+                // Request layout to calculate proper dimensions
+                requestLayout()
+            }
+
+            invalidate()
         } catch (e: Exception) {
             Log.e(TAG, "Error opening PDF", e)
         }
@@ -350,30 +364,35 @@ class PdfViewerView @JvmOverloads constructor(
         fileDescriptor = null
         
         pageCount = 0
+        originalPageWidth = 0
+        originalPageHeight = 0
         pageWidth = 0
         pageHeight = 0
+        dimensionsCalculated = false
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (pdfRenderer != null && pageWidth > 0) {
+        if (pdfRenderer != null && originalPageWidth > 0) {
+            dimensionsCalculated = false
             calculateDimensions()
             renderVisiblePages()
         }
     }
 
     private fun calculateDimensions() {
-        if (pageWidth == 0 || pageHeight == 0) return
-        
+        if (originalPageWidth == 0 || originalPageHeight == 0) return
+        if (width == 0 || height == 0) return
+
         // Calculate scale to fit page width with margins
         val horizontalPadding = 2 * pageGapPx
         val availableWidth = width - horizontalPadding
-        val fitScale = availableWidth.toFloat() / pageWidth
-        
-        // Update page dimensions to fit view
-        pageWidth = (pageWidth * fitScale).toInt()
-        pageHeight = (pageHeight * fitScale).toInt()
-        
+        val fitScale = availableWidth.toFloat() / originalPageWidth
+
+        // Calculate display dimensions (scaled to fit view)
+        pageWidth = (originalPageWidth * fitScale).toInt()
+        pageHeight = (originalPageHeight * fitScale).toInt()
+
         // Calculate total content height (pages + gaps)
         totalContentHeight = (pageHeight * pageCount + pageGapPx * (pageCount + 1)).toFloat()
         
@@ -383,6 +402,11 @@ class PdfViewerView @JvmOverloads constructor(
         // Center content horizontally
         translateX = (width - contentWidth * currentScale) / 2
         
+        // Start from top
+        translateY = 0f
+
+        dimensionsCalculated = true
+
         Log.d(TAG, "Calculated dimensions: pageWidth=$pageWidth, pageHeight=$pageHeight, totalHeight=$totalContentHeight, contentWidth=$contentWidth")
         
         // Notify listener

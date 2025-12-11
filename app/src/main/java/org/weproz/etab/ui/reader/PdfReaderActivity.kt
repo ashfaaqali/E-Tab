@@ -6,9 +6,6 @@ import android.view.View
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.ViewCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,13 +35,6 @@ class PdfReaderActivity : AppCompatActivity() {
         binding = ActivityPdfReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Edge-to-edge display
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
 
         pdfPath = intent.getStringExtra("book_path")
 
@@ -191,7 +181,8 @@ class PdfReaderActivity : AppCompatActivity() {
             val params = binding.pdfViewer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
             params.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
             params.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            params.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            params.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            params.topToBottom = R.id.top_action_bar
             params.height = 0
             binding.pdfViewer.layoutParams = params
 
@@ -222,7 +213,8 @@ class PdfReaderActivity : AppCompatActivity() {
             val pdfParams = binding.pdfViewer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
             pdfParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
             pdfParams.bottomToTop = R.id.split_guideline
-            pdfParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            pdfParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+            pdfParams.topToBottom = R.id.top_action_bar
             pdfParams.height = 0
             binding.pdfViewer.layoutParams = pdfParams
 

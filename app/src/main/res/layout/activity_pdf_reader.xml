@@ -73,7 +73,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/top_action_bar" />
 
     <!-- Split guideline -->
     <androidx.constraintlayout.widget.Guideline
@@ -112,8 +112,7 @@
         android:orientation="vertical"
         android:padding="4dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/split_handle">
+        app:layout_constraintTop_toBottomOf="@id/top_action_bar">
 
         <ImageButton
             android:id="@+id/btn_zoom_in"
