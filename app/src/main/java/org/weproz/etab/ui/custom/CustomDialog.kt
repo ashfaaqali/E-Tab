@@ -57,6 +57,19 @@ class CustomDialog(context: Context) {
         return this
     }
 
+    fun setItems(items: Array<String>, onClick: (Dialog, Int) -> Unit): CustomDialog {
+        val listView = android.widget.ListView(dialog.context)
+        val adapter = android.widget.ArrayAdapter(dialog.context, android.R.layout.simple_list_item_1, items)
+        listView.adapter = adapter
+        listView.setOnItemClickListener { _, _, position, _ ->
+            onClick(dialog, position)
+            dialog.dismiss()
+        }
+        contentContainer.removeAllViews()
+        contentContainer.addView(listView)
+        return this
+    }
+
     fun setPositiveButton(text: String, onClick: (Dialog) -> Unit): CustomDialog {
         positiveButton.text = text
         positiveButton.setOnClickListener { onClick(dialog) }

@@ -6,15 +6,19 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import org.weproz.etab.databinding.FragmentDictionaryBinding
 import org.weproz.etab.ui.search.SearchActivity
 
+@AndroidEntryPoint
 class DictionaryFragment : Fragment() {
 
     private var _binding: FragmentDictionaryBinding? = null
     private val binding get() = _binding!!
+    private val viewModel: DictionaryViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -36,7 +40,56 @@ class DictionaryFragment : Fragment() {
             showAddWordDialog()
         }
 
-        loadWordsOfTheDay()
+        observeViewModel()
+        viewModel.loadWordsOfTheDay()
+    }
+
+    private fun observeViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.wordsOfTheDay.collect { words ->
+                // Populate Card 1
+                words.getOrNull(0)?.let { word ->
+                    binding.textWord1.text = word.word.replaceFirstChar { it.uppercase() }
+                    binding.textType1.text = word.wordType
+                    binding.textDefinition1.text = word.definition
+                }
+
+                // Populate Card 2
+                words.getOrNull(1)?.let { word ->
+                    binding.textWord2.text = word.word.replaceFirstChar { it.uppercase() }
+                    binding.textType2.text = word.wordType
+                    binding.textDefinition2.text = word.definition
+                }
+
+                // Populate Card 3
+                words.getOrNull(2)?.let { word ->
+                    binding.textWord3.text = word.word.replaceFirstChar { it.uppercase() }
+                    binding.textType3.text = word.wordType
+                    binding.textDefinition3.text = word.definition
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.saveWordStatus.collect { result ->
+                result?.let {
+                    if (it.isSuccess) {
+                        android.widget.Toast.makeText(
+                            requireContext(),
+                            "Word saved!",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        android.widget.Toast.makeText(
+                            requireContext(),
+                            "Error saving word",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    viewModel.resetSaveStatus()
+                }
+            }
+        }
     }
 
     private fun showAddWordDialog() {
@@ -70,7 +123,7 @@ class DictionaryFragment : Fragment() {
                 val definition = definitionInput.text.toString().trim()
 
                 if (word.isNotEmpty() && definition.isNotEmpty()) {
-                    saveWord(word, type, definition)
+                    viewModel.saveWord(word, type, definition)
                     dialog.dismiss()
                 } else {
                     android.widget.Toast.makeText(
@@ -84,69 +137,6 @@ class DictionaryFragment : Fragment() {
             .show()
     }
 
-    private fun saveWord(word: String, type: String, definition: String) {
-        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val dao =
-                    org.weproz.etab.data.local.WordDatabase.getDatabase(requireContext()).wordDao()
-                // Generate a random ID to avoid conflicts if autoGenerate is not on
-                val id = kotlin.random.Random.nextInt()
-                val entry = org.weproz.etab.data.local.DictionaryEntry(
-                    id = id,
-                    word = word,
-                    wordType = type,
-                    definition = definition
-                )
-                dao.insert(entry)
-
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    android.widget.Toast.makeText(
-                        requireContext(),
-                        "Word saved!",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    android.widget.Toast.makeText(
-                        requireContext(),
-                        "Error saving word",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }
-    }
-
-    private fun loadWordsOfTheDay() {
-        lifecycleScope.launch {
-            val dao =
-                org.weproz.etab.data.local.WordDatabase.getDatabase(requireContext()).wordDao()
-            val words = dao.getRandomWords()
-
-            // Populate Card 1
-            words.getOrNull(0)?.let { word ->
-                binding.textWord1.text = word.word.replaceFirstChar { it.uppercase() }
-                binding.textType1.text = word.wordType
-                binding.textDefinition1.text = word.definition
-            }
-
-            // Populate Card 2
-            words.getOrNull(1)?.let { word ->
-                binding.textWord2.text = word.word.replaceFirstChar { it.uppercase() }
-                binding.textType2.text = word.wordType
-                binding.textDefinition2.text = word.definition
-            }
-
-            // Populate Card 3
-            words.getOrNull(2)?.let { word ->
-                binding.textWord3.text = word.word.replaceFirstChar { it.uppercase() }
-                binding.textType3.text = word.wordType
-                binding.textDefinition3.text = word.definition
-            }
-        }
-    }
 
     override fun onDestroyView() {
         super.onDestroyView()

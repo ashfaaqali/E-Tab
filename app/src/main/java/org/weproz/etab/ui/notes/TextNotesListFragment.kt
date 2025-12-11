@@ -4,19 +4,21 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.weproz.etab.data.local.AppDatabase
 import org.weproz.etab.databinding.FragmentTextNotesListBinding
 import org.weproz.etab.util.ShareHelper
 
+@AndroidEntryPoint
 class TextNotesListFragment : Fragment() {
 
     private var _binding: FragmentTextNotesListBinding? = null
     private val binding get() = _binding!!
+    private val viewModel: TextNotesViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -30,8 +32,6 @@ class TextNotesListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        val repo = org.weproz.etab.data.repository.NoteRepository(requireContext())
-
         val adapter = TextNoteAdapter(
             onItemClick = { note ->
                 val intent = android.content.Intent(requireContext(), NoteEditorActivity::class.java).apply {
@@ -43,21 +43,21 @@ class TextNotesListFragment : Fragment() {
             },
             onItemLongClick = { note ->
                 val options = arrayOf("Rename", "Share as PDF", "Delete")
-                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                org.weproz.etab.ui.custom.CustomDialog(requireContext())
+                    .setTitle("Options")
                     .setItems(options) { _, which ->
                         when (which) {
                             0 -> { // Rename
                                 val input = android.widget.EditText(requireContext())
                                 input.setText(note.title)
-                                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                org.weproz.etab.ui.custom.CustomDialog(requireContext())
                                     .setTitle("Rename Note")
                                     .setView(input)
-                                    .setPositiveButton("Rename") { _, _ ->
-                                        viewLifecycleOwner.lifecycleScope.launch {
-                                            repo.renameTextNote(note, input.text.toString())
-                                        }
+                                    .setPositiveButton("Rename") { dialog ->
+                                        viewModel.renameTextNote(note, input.text.toString())
+                                        dialog.dismiss()
                                     }
-                                    .setNegativeButton("Cancel", null)
+                                    .setNegativeButton("Cancel")
                                     .show()
                             }
                             1 -> { // Share as PDF
@@ -66,15 +66,14 @@ class TextNotesListFragment : Fragment() {
                                 }
                             }
                             2 -> { // Delete
-                                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                org.weproz.etab.ui.custom.CustomDialog(requireContext())
                                     .setTitle("Delete Note")
                                     .setMessage("Are you sure you want to delete '${note.title}'?")
-                                    .setPositiveButton("Delete") { _, _ ->
-                                        viewLifecycleOwner.lifecycleScope.launch {
-                                            repo.deleteTextNote(note)
-                                        }
+                                    .setPositiveButton("Delete") { dialog ->
+                                        viewModel.deleteTextNote(note)
+                                        dialog.dismiss()
                                     }
-                                    .setNegativeButton("Cancel", null)
+                                    .setNegativeButton("Cancel")
                                     .show()
                             }
                         }
@@ -85,8 +84,7 @@ class TextNotesListFragment : Fragment() {
         binding.recyclerTextNotes.adapter = adapter
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val db = AppDatabase.getDatabase(requireContext())
-            db.textNoteDao().getAllNotes().collectLatest { notes ->
+            viewModel.textNotes.collectLatest { notes ->
                 adapter.submitList(notes)
             }
         }
@@ -96,6 +94,7 @@ class TextNotesListFragment : Fragment() {
              startActivity(intent)
         }
     }
+
 
     override fun onDestroyView() {
         super.onDestroyView()

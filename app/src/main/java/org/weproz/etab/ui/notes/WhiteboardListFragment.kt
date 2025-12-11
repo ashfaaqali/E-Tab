@@ -6,17 +6,20 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.weproz.etab.data.local.AppDatabase
 import org.weproz.etab.databinding.FragmentWhiteboardListBinding
 import org.weproz.etab.util.ShareHelper
 
+@AndroidEntryPoint
 class WhiteboardListFragment : Fragment() {
 
     private var _binding: FragmentWhiteboardListBinding? = null
     private val binding get() = _binding!!
+    private val viewModel: WhiteboardViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -30,8 +33,6 @@ class WhiteboardListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        val repo = org.weproz.etab.data.repository.NoteRepository(requireContext())
-        
         val adapter = WhiteboardAdapter(
             onItemClick = { whiteboard ->
                 val intent = android.content.Intent(requireContext(), org.weproz.etab.ui.notes.whiteboard.WhiteboardEditorActivity::class.java).apply {
@@ -44,21 +45,21 @@ class WhiteboardListFragment : Fragment() {
             onItemLongClick = { whiteboard ->
                 val options = arrayOf("Rename", "Share as PDF", "Delete")
 
-                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                org.weproz.etab.ui.custom.CustomDialog(requireContext())
+                    .setTitle("Options")
                     .setItems(options) { _, which ->
                         when (which) {
                             0 -> { // Rename
                                 val input = android.widget.EditText(requireContext())
                                 input.setText(whiteboard.title)
-                                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                org.weproz.etab.ui.custom.CustomDialog(requireContext())
                                     .setTitle("Rename Whiteboard")
                                     .setView(input)
-                                    .setPositiveButton("Rename") { _, _ ->
-                                        viewLifecycleOwner.lifecycleScope.launch {
-                                            repo.renameWhiteboard(whiteboard, input.text.toString())
-                                        }
+                                    .setPositiveButton("Rename") { dialog ->
+                                        viewModel.renameWhiteboard(whiteboard, input.text.toString())
+                                        dialog.dismiss()
                                     }
-                                    .setNegativeButton("Cancel", null)
+                                    .setNegativeButton("Cancel")
                                     .show()
                             }
                             1 -> { // Share as PDF
@@ -71,15 +72,14 @@ class WhiteboardListFragment : Fragment() {
                                 }
                             }
                             2 -> { // Delete
-                                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                org.weproz.etab.ui.custom.CustomDialog(requireContext())
                                     .setTitle("Delete Whiteboard")
                                     .setMessage("Are you sure you want to delete '${whiteboard.title}'?")
-                                    .setPositiveButton("Delete") { _, _ ->
-                                        viewLifecycleOwner.lifecycleScope.launch {
-                                            repo.deleteWhiteboard(whiteboard)
-                                        }
+                                    .setPositiveButton("Delete") { dialog ->
+                                        viewModel.deleteWhiteboard(whiteboard)
+                                        dialog.dismiss()
                                     }
-                                    .setNegativeButton("Cancel", null)
+                                    .setNegativeButton("Cancel")
                                     .show()
                             }
                         }
@@ -90,8 +90,7 @@ class WhiteboardListFragment : Fragment() {
         binding.recyclerWhiteboards.adapter = adapter
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val db = AppDatabase.getDatabase(requireContext())
-            db.whiteboardDao().getAllWhiteboards().collectLatest { whiteboards ->
+            viewModel.whiteboards.collectLatest { whiteboards ->
                 adapter.submitList(whiteboards)
             }
         }

@@ -11,23 +11,25 @@ import android.view.Menu
 import android.view.MenuItem
 import android.widget.EditText
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.weproz.etab.R
-import org.weproz.etab.data.local.AppDatabase
-import org.weproz.etab.data.local.WhiteboardEntity
 import org.weproz.etab.databinding.ActivityWhiteboardEditorBinding
 import java.io.File
 import java.io.FileOutputStream
 import androidx.core.view.size
 
+@AndroidEntryPoint
 class WhiteboardEditorActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityWhiteboardEditorBinding
+    private val viewModel: WhiteboardEditorViewModel by viewModels()
     private var whiteboardId: Long = -1
     private var currentTitle = "Untitled Whiteboard"
     private var dataPath: String = ""
@@ -38,7 +40,6 @@ class WhiteboardEditorActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityWhiteboardEditorBinding.inflate(layoutInflater)
         binding = ActivityWhiteboardEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -303,79 +304,41 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     private fun saveWhiteboard() {
         saveCurrentPage() // Ensure current page is saved
         
-        lifecycleScope.launch(Dispatchers.IO) {
-            val json = WhiteboardSerializer.serialize(pages)
-            
-            val filename = "wb_${System.currentTimeMillis()}.json"
-            
-            // Determine file to write to
-            val actualFile = if (dataPath.isNotEmpty()) {
-                File(dataPath)
-            } else {
-                File(filesDir, filename)
+        val json = WhiteboardSerializer.serialize(pages)
+        
+        viewModel.saveWhiteboard(
+            whiteboardId = whiteboardId,
+            currentTitle = currentTitle,
+            dataPath = dataPath,
+            pagesJson = json,
+            filesDir = filesDir,
+            onComplete = { newId, newTitle, newDataPath ->
+                whiteboardId = newId
+                currentTitle = newTitle
+                dataPath = newDataPath
             }
-            
-            FileOutputStream(actualFile).use { it.write(json.toByteArray()) }
-            
-            // Update dataPath reference for subsequent saves in this session
-            dataPath = actualFile.absolutePath
-
-            // Save Entity
-            val dao = AppDatabase.getDatabase(this@WhiteboardEditorActivity).whiteboardDao()
-
-            // Generate title if empty (new whiteboard)
-            val titleToSave = if (currentTitle.isEmpty()) {
-                val count = dao.getWhiteboardCount()
-                "Untitled ${count + 1}"
-            } else {
-                currentTitle
-            }
-
-            val entity = WhiteboardEntity(
-                id = if (whiteboardId == -1L) 0 else whiteboardId,
-                title = titleToSave,
-                thumbnailPath = null, // TODO: Generate thumbnail
-                dataPath = actualFile.absolutePath,
-                updatedAt = System.currentTimeMillis()
-            )
-            
-            if (whiteboardId == -1L) {
-               val newId = dao.insert(entity)
-               whiteboardId = newId  // Update ID for subsequent saves
-               currentTitle = titleToSave  // Update title reference
-            } else {
-               dao.update(entity)
-            }
-        }
+        )
     }
     
     private fun loadWhiteboardData() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val file = File(dataPath)
-                if (!file.exists()) return@launch
-                
-                val json = file.readText()
+        viewModel.loadWhiteboardData(
+            dataPath = dataPath,
+            onLoaded = { json ->
                 val parsedData = WhiteboardSerializer.deserialize(json)
+                pages.clear()
+                pages.addAll(parsedData.pages)
                 
-                withContext(Dispatchers.Main) {
-                    pages.clear()
-                    pages.addAll(parsedData.pages)
-                    
-                    if (pages.isEmpty()) {
-                        pages.add(ParsedPage(emptyList(), GridType.NONE))
-                    }
-                    
-                    currentPageIndex = 0
-                    loadCurrentPage()
+                if (pages.isEmpty()) {
+                    pages.add(ParsedPage(emptyList(), GridType.NONE))
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@WhiteboardEditorActivity, "Failed to load whiteboard", Toast.LENGTH_SHORT).show()
-                }
+                
+                currentPageIndex = 0
+                loadCurrentPage()
+            },
+            onError = {
+                Toast.makeText(this@WhiteboardEditorActivity, "Failed to load whiteboard", Toast.LENGTH_SHORT).show()
             }
-        }
+        )
     }
 
     private fun saveAsPdf() {
