@@ -43,7 +43,7 @@
 
     </LinearLayout>
 
-    <WebView
+    <org.weproz.etab.ui.reader.CustomWebView
         android:id="@+id/webview"
         android:layout_width="0dp"
         android:layout_height="0dp"

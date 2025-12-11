@@ -269,6 +269,7 @@ class ReaderActivity : AppCompatActivity() {
             allowUniversalAccessFromFileURLs = true
             loadsImagesAutomatically = true
         }
+
         binding.webview.addJavascriptInterface(WebAppInterface(), "Android")
         binding.webview.webChromeClient = WebChromeClient()
         binding.webview.webViewClient = object : WebViewClient() {
@@ -423,6 +424,8 @@ class ReaderActivity : AppCompatActivity() {
                 <button onclick="defineWord()">Define</button>
                 <div style="width: 1px; height: 16px; background: #555; display: inline-block; vertical-align: middle; margin: 0 4px;"></div>
                 <button onclick="highlightText()">Highlight</button>
+                <div style="width: 1px; height: 16px; background: #555; display: inline-block; vertical-align: middle; margin: 0 4px;"></div>
+                <button onclick="copyText()">Copy</button>
             </div>
             <script>
                 var selectedText = "";
@@ -455,36 +458,96 @@ class ReaderActivity : AppCompatActivity() {
                     document.getElementById('custom-menu').style.display = 'none';
                 }
 
+                function copyText() {
+                    Android.onCopy(selectedText);
+                    document.getElementById('custom-menu').style.display = 'none';
+                }
+
                 function highlightText() {
                     if (selectionRange) {
+                        // Calculate occurrence index
+                        var index = 0;
+                        var tempRange = document.createRange();
+                        tempRange.selectNodeContents(document.body);
+                        tempRange.setEnd(selectionRange.startContainer, selectionRange.startOffset);
+                        var precedingText = tempRange.toString();
+                        
+                        // Count occurrences of selectedText in precedingText
+                        // We need to be careful with overlapping or partial matches, but simple split is okay for now
+                        // Note: This depends on how toString() behaves vs innerText. 
+                        // A safer way is to use a marker.
+                        
+                        // Method 2: Marker
+                        var marker = document.createElement('span');
+                        marker.id = 'temp-marker';
+                        selectionRange.insertNode(marker);
+                        var bodyHtml = document.body.innerHTML;
+                        var markerIndex = bodyHtml.indexOf('id="temp-marker"');
+                        
+                        // Remove marker
+                        marker.parentNode.removeChild(marker);
+                        
+                        // This is getting complicated because innerHTML changes.
+                        // Let's stick to text content counting.
+                        
+                        var count = 0;
+                        var pos = precedingText.indexOf(selectedText);
+                        while (pos !== -1) {
+                            count++;
+                            pos = precedingText.indexOf(selectedText, pos + 1);
+                        }
+                        index = count;
+
                         var span = document.createElement('span');
                         span.className = 'highlighted';
                         span.textContent = selectedText;
                         selectionRange.deleteContents();
                         selectionRange.insertNode(span);
                         
-                        // Serialize range (simplified)
-                        // In real app, use a robust CFI or XPath. 
-                        // Here we just send the text and index for demo.
-                        Android.onHighlight(selectedText, "dummy_range_data");
+                        Android.onHighlight(selectedText, index.toString());
                         
                         window.getSelection().removeAllRanges();
                         document.getElementById('custom-menu').style.display = 'none';
                     }
                 }
                 
-                function restoreHighlight(text) {
-                    // Escape regex special characters
-                    var escapedText = text.replace(/[.*+?^${'$'}{}()[\]\\]/g, '\\${'$'}&');
+                function restoreHighlight(text, indexStr) {
+                    var targetIndex = parseInt(indexStr);
+                    if (isNaN(targetIndex)) targetIndex = 0; // Fallback
                     
-                    var body = document.body.innerHTML;
-                    // Use a more robust replacement that doesn't replace inside existing tags if possible,
-                    // but for MVP replacing text content is tricky with simple regex on innerHTML.
-                    // Risk: replacing attributes. e.g. highlighting "class".
-                    // Improved regex: Match text not inside tags. (Very complex, staying simple for now but safer regex)
+                    // Walk text nodes to find the Nth occurrence
+                    var walker = document.createTreeWalker(
+                        document.body,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+
+                    var currentNode;
+                    var matchCount = 0;
                     
-                    var newBody = body.replace(new RegExp(escapedText, 'g'), '<span class="highlighted">' + text + '</span>');
-                    document.body.innerHTML = newBody;
+                    while (currentNode = walker.nextNode()) {
+                        var nodeValue = currentNode.nodeValue;
+                        var pos = nodeValue.indexOf(text);
+                        
+                        while (pos !== -1) {
+                            if (matchCount === targetIndex) {
+                                // Found it!
+                                var range = document.createRange();
+                                range.setStart(currentNode, pos);
+                                range.setEnd(currentNode, pos + text.length);
+                                
+                                var span = document.createElement('span');
+                                span.className = 'highlighted';
+                                span.textContent = text;
+                                range.deleteContents();
+                                range.insertNode(span);
+                                return; // Done
+                            }
+                            matchCount++;
+                            pos = nodeValue.indexOf(text, pos + 1);
+                        }
+                    }
                 }
             </script>
         """
@@ -500,7 +563,8 @@ class ReaderActivity : AppCompatActivity() {
                 highlights.forEach { highlight ->
                     // Escape single quotes for JS string
                     val safeText = highlight.highlightedText.replace("'", "\\'")
-                    binding.webview.evaluateJavascript("restoreHighlight('$safeText')", null)
+                    val rangeData = highlight.rangeData ?: "0"
+                    binding.webview.evaluateJavascript("restoreHighlight('$safeText', '$rangeData')", null)
                 }
             }
         }
@@ -534,6 +598,16 @@ class ReaderActivity : AppCompatActivity() {
                     color = -256 // Yellow
                 )
                 AppDatabase.getDatabase(this@ReaderActivity).highlightDao().insert(highlight)
+            }
+        }
+
+        @JavascriptInterface
+        fun onCopy(text: String) {
+            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("Copied Text", text)
+            clipboard.setPrimaryClip(clip)
+            runOnUiThread {
+                Toast.makeText(this@ReaderActivity, "Copied to clipboard", Toast.LENGTH_SHORT).show()
             }
         }
     }
