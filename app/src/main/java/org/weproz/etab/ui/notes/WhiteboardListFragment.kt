@@ -100,21 +100,22 @@ class WhiteboardListFragment : Fragment() {
             val input = android.widget.EditText(requireContext())
             input.hint = "Whiteboard Title"
             
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            org.weproz.etab.ui.custom.CustomDialog(requireContext())
                 .setTitle("New Whiteboard")
                 .setView(input)
-                .setPositiveButton("Create") { _, _ ->
+                .setPositiveButton("Create") { dialog ->
                     val title = input.text.toString().trim()
                     if (title.isNotEmpty()) {
                         val intent = android.content.Intent(requireContext(), org.weproz.etab.ui.notes.whiteboard.WhiteboardEditorActivity::class.java).apply {
                             putExtra("whiteboard_title", title)
                         }
                         startActivity(intent)
+                        dialog.dismiss()
                     } else {
                         Toast.makeText(requireContext(), "Title cannot be empty", Toast.LENGTH_SHORT).show()
                     }
                 }
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton("Cancel")
                 .show()
         }
     }

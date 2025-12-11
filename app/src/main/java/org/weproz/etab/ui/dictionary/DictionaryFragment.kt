@@ -61,16 +61,17 @@ class DictionaryFragment : Fragment() {
         layout.addView(typeInput)
         layout.addView(definitionInput)
 
-        androidx.appcompat.app.AlertDialog.Builder(context)
+        org.weproz.etab.ui.custom.CustomDialog(context)
             .setTitle("Add New Word")
             .setView(layout)
-            .setPositiveButton("Save") { _, _ ->
+            .setPositiveButton("Save") { dialog ->
                 val word = wordInput.text.toString().trim()
                 val type = typeInput.text.toString().trim()
                 val definition = definitionInput.text.toString().trim()
 
                 if (word.isNotEmpty() && definition.isNotEmpty()) {
                     saveWord(word, type, definition)
+                    dialog.dismiss()
                 } else {
                     android.widget.Toast.makeText(
                         context,
@@ -79,7 +80,7 @@ class DictionaryFragment : Fragment() {
                     ).show()
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Cancel")
             .show()
     }
 
