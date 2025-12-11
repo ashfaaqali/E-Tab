@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.weproz.etab.data.local.AppDatabase
 import org.weproz.etab.databinding.FragmentTextNotesListBinding
+import org.weproz.etab.util.ShareHelper
 
 class TextNotesListFragment : Fragment() {
 
@@ -41,7 +42,7 @@ class TextNotesListFragment : Fragment() {
                 startActivity(intent)
             },
             onItemLongClick = { note ->
-                val options = arrayOf("Rename", "Delete")
+                val options = arrayOf("Rename", "Share as PDF", "Delete")
                 androidx.appcompat.app.AlertDialog.Builder(requireContext())
                     .setItems(options) { _, which ->
                         when (which) {
@@ -59,7 +60,12 @@ class TextNotesListFragment : Fragment() {
                                     .setNegativeButton("Cancel", null)
                                     .show()
                             }
-                            1 -> { // Delete
+                            1 -> { // Share as PDF
+                                viewLifecycleOwner.lifecycleScope.launch {
+                                    ShareHelper.shareTextNoteAsPdf(requireContext(), note)
+                                }
+                            }
+                            2 -> { // Delete
                                 androidx.appcompat.app.AlertDialog.Builder(requireContext())
                                     .setTitle("Delete Note")
                                     .setMessage("Are you sure you want to delete '${note.title}'?")

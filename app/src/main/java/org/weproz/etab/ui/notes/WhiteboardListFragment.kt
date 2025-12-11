@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.weproz.etab.data.local.AppDatabase
 import org.weproz.etab.databinding.FragmentWhiteboardListBinding
+import org.weproz.etab.util.ShareHelper
 
 class WhiteboardListFragment : Fragment() {
 
@@ -41,11 +42,8 @@ class WhiteboardListFragment : Fragment() {
                 startActivity(intent)
             },
             onItemLongClick = { whiteboard ->
-                val options = arrayOf("Rename", "Delete", "Save as PDF", "Save as Image (TODO)") // TODO: Implement background save without opening?
-                // Saving as PDF/Image usually requires rendering the View, which isn't easy from a background list context without opening logic.
-                // The user requirements said "Save as pdf and save as image... on whiteboard list screen on long pressing".
-                // To do this robustly without opening the editor, we would need to deserialize the data (Paths) and draw them onto a Canvas/Bitmap in memory.
-                
+                val options = arrayOf("Rename", "Share as PDF", "Delete")
+
                 androidx.appcompat.app.AlertDialog.Builder(requireContext())
                     .setItems(options) { _, which ->
                         when (which) {
@@ -63,7 +61,16 @@ class WhiteboardListFragment : Fragment() {
                                     .setNegativeButton("Cancel", null)
                                     .show()
                             }
-                            1 -> { // Delete
+                            1 -> { // Share as PDF
+                                viewLifecycleOwner.lifecycleScope.launch {
+                                    ShareHelper.shareWhiteboardAsPdf(
+                                        requireContext(),
+                                        whiteboard.dataPath,
+                                        whiteboard.title
+                                    )
+                                }
+                            }
+                            2 -> { // Delete
                                 androidx.appcompat.app.AlertDialog.Builder(requireContext())
                                     .setTitle("Delete Whiteboard")
                                     .setMessage("Are you sure you want to delete '${whiteboard.title}'?")
@@ -74,12 +81,6 @@ class WhiteboardListFragment : Fragment() {
                                     }
                                     .setNegativeButton("Cancel", null)
                                     .show()
-                            }
-                            2 -> {
-                                Toast.makeText(requireContext(), "To export, please open the whiteboard.", Toast.LENGTH_LONG).show()
-                            }
-                            3 -> {
-                                Toast.makeText(requireContext(), "To export, please open the whiteboard.", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
