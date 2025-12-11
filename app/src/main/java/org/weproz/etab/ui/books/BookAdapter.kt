@@ -4,12 +4,14 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -29,9 +31,16 @@ class BookAdapter(
 
     private var books: List<BookEntity> = emptyList()
 
+    // In-memory cache for cover bitmaps to prevent reloading
+    companion object {
+        private val coverCache: LruCache<String, Bitmap> = LruCache(50) // Cache up to 50 covers
+    }
+
     fun submitList(newBooks: List<BookEntity>) {
+        val diffCallback = BookDiffCallback(books, newBooks)
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
         books = newBooks
-        notifyDataSetChanged()
+        diffResult.dispatchUpdatesTo(this)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -44,6 +53,22 @@ class BookAdapter(
     }
 
     override fun getItemCount(): Int = books.size
+
+    private class BookDiffCallback(
+        private val oldList: List<BookEntity>,
+        private val newList: List<BookEntity>
+    ) : DiffUtil.Callback() {
+        override fun getOldListSize() = oldList.size
+        override fun getNewListSize() = newList.size
+
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            return oldList[oldItemPosition].path == newList[newItemPosition].path
+        }
+
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            return oldList[oldItemPosition] == newList[newItemPosition]
+        }
+    }
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val titleView: TextView = itemView.findViewById(R.id.text_book_title)
@@ -82,19 +107,29 @@ class BookAdapter(
                 true
             }
             
-            // Cover loading based on book type
-            coverView.setImageResource(R.drawable.app_logo) // Reset with app logo
+            // Set tag for concurrency check
+            coverView.tag = book.path
+
+            // Check if cover is already cached
+            val cachedBitmap = coverCache.get(book.path)
+            if (cachedBitmap != null) {
+                // Use cached cover - no flickering
+                coverView.setImageBitmap(cachedBitmap)
+                coverView.scaleType = ImageView.ScaleType.CENTER_CROP
+                coverView.setBackgroundColor(Color.TRANSPARENT)
+                return
+            }
+
+            // Set placeholder and load cover
+            coverView.setImageResource(R.drawable.app_logo)
             coverView.scaleType = ImageView.ScaleType.CENTER_INSIDE
-            coverView.tag = book.path // Tag for concurrency check
-            
+
             when (book.type) {
                 BookType.PDF -> {
-                    // Use a distinctive PDF color
                     coverView.setBackgroundColor(Color.parseColor("#E53935")) // Red for PDF
                     loadPdfCoverAsync(book.path, coverView)
                 }
                 BookType.EPUB -> {
-                    // White background with app logo for EPUB
                     coverView.setBackgroundColor(Color.WHITE)
                     loadEpubCoverAsync(book.path, coverView)
                 }
@@ -104,6 +139,18 @@ class BookAdapter(
         private fun loadPdfCoverAsync(path: String, target: ImageView) {
             GlobalScope.launch(Dispatchers.IO) {
                 try {
+                    // Check cache again (might have been loaded by another coroutine)
+                    if (coverCache.get(path) != null) {
+                        withContext(Dispatchers.Main) {
+                            if (target.tag == path) {
+                                target.setImageBitmap(coverCache.get(path))
+                                target.scaleType = ImageView.ScaleType.CENTER_CROP
+                                target.setBackgroundColor(Color.TRANSPARENT)
+                            }
+                        }
+                        return@launch
+                    }
+
                     val file = File(path)
                     if (!file.exists()) return@launch
                     
@@ -122,10 +169,14 @@ class BookAdapter(
                         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                         page.close()
                         
+                        // Cache the bitmap
+                        coverCache.put(path, bitmap)
+
                         withContext(Dispatchers.Main) {
                             if (target.tag == path) {
                                 target.setImageBitmap(bitmap)
                                 target.scaleType = ImageView.ScaleType.CENTER_CROP
+                                target.setBackgroundColor(Color.TRANSPARENT)
                             }
                         }
                     }
@@ -141,15 +192,34 @@ class BookAdapter(
         private fun loadEpubCoverAsync(path: String, target: ImageView) {
             GlobalScope.launch(Dispatchers.IO) {
                 try {
+                    // Check cache again
+                    if (coverCache.get(path) != null) {
+                        withContext(Dispatchers.Main) {
+                            if (target.tag == path) {
+                                target.setImageBitmap(coverCache.get(path))
+                                target.scaleType = ImageView.ScaleType.CENTER_CROP
+                                target.setBackgroundColor(Color.TRANSPARENT)
+                            }
+                        }
+                        return@launch
+                    }
+
                     val epubReader = nl.siegmann.epublib.epub.EpubReader()
                     val book = epubReader.readEpub(FileInputStream(path))
                     val coverImage = book.coverImage
                     if (coverImage != null) {
                         val bitmap = android.graphics.BitmapFactory.decodeStream(coverImage.inputStream)
+
+                        // Cache the bitmap
+                        if (bitmap != null) {
+                            coverCache.put(path, bitmap)
+                        }
+
                         withContext(Dispatchers.Main) {
-                            if (target.tag == path) {
+                            if (target.tag == path && bitmap != null) {
                                 target.setImageBitmap(bitmap)
                                 target.scaleType = ImageView.ScaleType.CENTER_CROP
+                                target.setBackgroundColor(Color.TRANSPARENT)
                             }
                         }
                     }
