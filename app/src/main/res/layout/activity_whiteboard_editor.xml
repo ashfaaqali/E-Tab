@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     tools:context=".ui.notes.whiteboard.WhiteboardEditorActivity">
 
-    <!-- Custom Toolbar Layout -->
+    <!-- Toolbar with Tools -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/app_bar"
         android:layout_width="match_parent"
@@ -29,6 +29,17 @@
                 android:gravity="center_vertical"
                 android:padding="4dp">
 
+                <!-- Back Button -->
+                <ImageButton
+                    android:id="@+id/btn_back"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="8dp"
+                    android:src="@drawable/ic_arrow_back"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Back"
+                    app:tint="@android:color/white" />
+
                 <!-- Tools Container -->
                 <LinearLayout
                     android:layout_width="0dp"
@@ -43,10 +54,10 @@
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:layout_marginEnd="8dp"
-                         android:background="@drawable/bg_toolbar_tool"
-                        android:src="@drawable/ic_brush" 
+                        android:background="@drawable/bg_toolbar_tool"
+                        android:src="@drawable/ic_brush"
                         android:padding="8dp"
-                        app:tint="@android:color/white"/>
+                        app:tint="@android:color/white" />
 
                     <!-- Undo -->
                     <ImageButton
@@ -57,7 +68,7 @@
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_undo"
                         android:padding="8dp"
-                        app:tint="@android:color/white"/>
+                        app:tint="@android:color/white" />
 
                     <!-- Redo -->
                     <ImageButton
@@ -68,33 +79,30 @@
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_redo"
                         android:padding="8dp"
-                        app:tint="@android:color/white"/>
+                        app:tint="@android:color/white" />
 
                     <!-- Grid -->
                     <ImageButton
                         android:id="@+id/btn_tool_grid"
                         android:layout_width="40dp"
-                         android:layout_height="40dp"
+                        android:layout_height="40dp"
                         android:layout_marginEnd="8dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_grid"
                         android:padding="8dp"
-                        app:tint="@android:color/white"/>
+                        app:tint="@android:color/white" />
 
                     <!-- Add Text -->
                     <ImageButton
                         android:id="@+id/btn_tool_text"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:layout_marginEnd="8dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_text_fields"
                         android:padding="8dp"
-                        app:tint="@android:color/white"/>
+                        app:tint="@android:color/white" />
 
                 </LinearLayout>
-
-                <!-- More Options (Menu) handled by setSupportActionBar -->
 
             </LinearLayout>
         </androidx.appcompat.widget.Toolbar>

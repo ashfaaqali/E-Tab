@@ -80,6 +80,16 @@ class ReaderActivity : AppCompatActivity() {
         // Initial state
         showNavigation()
         
+        // Back button
+        binding.btnBack.setOnClickListener {
+            finish()
+        }
+
+        // Split view button
+        binding.btnSplitView.setOnClickListener {
+            toggleSplitView()
+        }
+
         binding.btnOverlayPrev.setOnClickListener {
             prevChapter()
             showNavigation()

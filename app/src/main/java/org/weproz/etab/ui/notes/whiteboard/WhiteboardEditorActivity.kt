@@ -3,7 +3,6 @@ package org.weproz.etab.ui.notes.whiteboard
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Path
 import android.graphics.pdf.PdfDocument
 import android.os.Bundle
 import android.os.Environment
@@ -15,8 +14,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,7 +48,8 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         }
 
         setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setDisplayHomeAsUpEnabled(false)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
 
         whiteboardId = intent.getLongExtra("whiteboard_id", -1)
         currentTitle = intent.getStringExtra("whiteboard_title") ?: ""  // Empty means new whiteboard, will be set on save
@@ -75,7 +73,12 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     }
 
     private fun setupTools() {
-        binding.toolbar.setNavigationOnClickListener { onBackPressed() }
+        // Back button
+        binding.btnBack.setOnClickListener {
+            saveWhiteboard()
+            finish()
+        }
+
 
         binding.btnToolBrush.setOnClickListener { showBrushSettingsDialog() }
         binding.btnToolText.setOnClickListener { showAddTextDialog() }
@@ -246,12 +249,13 @@ class WhiteboardEditorActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.action_save_pdf -> {
-                saveAsPdf()
+            R.id.action_save -> {
+                saveWhiteboard()
+                Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
                 true
             }
-            R.id.action_save_image -> {
-                saveAsImage()
+            R.id.action_save_pdf -> {
+                saveAsPdf()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -394,34 +398,8 @@ class WhiteboardEditorActivity : AppCompatActivity() {
             }
         }
 
-    private fun saveAsImage() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val bitmap = createBitmapFromView()
-                val imagesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-                val imageFile = File(imagesDir, "${currentTitle.replace(" ", "_")}.png")
-                
-                FileOutputStream(imageFile).use { 
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) 
-                }
-                
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@WhiteboardEditorActivity, "Saved Image: ${imageFile.absolutePath}", Toast.LENGTH_LONG).show()
-                }
-            } catch (e: Exception) {
-                 e.printStackTrace()
-                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@WhiteboardEditorActivity, "Failed to save Image: ${e.message}", Toast.LENGTH_SHORT).show()
-                 }
-            }
-        }
-    }
-    
     private suspend fun createBitmapFromView(): Bitmap = withContext(Dispatchers.Main) {
         val view = binding.whiteboardView
-        // Capture the full content, currently just captures visible view area which might be zoomed.
-        // For a proper full canvas capture, we should ideally reset zoom, layout, capture, then restore.
-        // MVP: Capture current view state.
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         view.draw(canvas)

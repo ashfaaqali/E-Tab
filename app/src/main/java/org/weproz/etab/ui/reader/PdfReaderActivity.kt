@@ -94,6 +94,16 @@ class PdfReaderActivity : AppCompatActivity() {
     }
 
     private fun setupControls() {
+        // Back button
+        binding.btnBack.setOnClickListener {
+            finish()
+        }
+
+        // Split view button
+        binding.btnSplitView.setOnClickListener {
+            toggleSplitView()
+        }
+
         // Zoom controls
         binding.btnZoomIn.setOnClickListener {
             binding.pdfViewer.zoomIn()

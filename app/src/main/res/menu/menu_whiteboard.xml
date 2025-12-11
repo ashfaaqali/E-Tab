@@ -1,11 +1,12 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_save_pdf"
-        android:title="Save as PDF"
+        android:id="@+id/action_save"
+        android:title="Save"
+        android:icon="@drawable/ic_save"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_save_image"
-        android:title="Save as Image"
+        android:id="@+id/action_save_pdf"
+        android:title="Save as PDF"
         app:showAsAction="never" />
 </menu>
