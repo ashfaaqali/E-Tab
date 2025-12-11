@@ -97,8 +97,25 @@ class WhiteboardListFragment : Fragment() {
         }
 
         binding.fabAddWhiteboard.setOnClickListener {
-             val intent = android.content.Intent(requireContext(), org.weproz.etab.ui.notes.whiteboard.WhiteboardEditorActivity::class.java)
-             startActivity(intent)
+            val input = android.widget.EditText(requireContext())
+            input.hint = "Whiteboard Title"
+            
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("New Whiteboard")
+                .setView(input)
+                .setPositiveButton("Create") { _, _ ->
+                    val title = input.text.toString().trim()
+                    if (title.isNotEmpty()) {
+                        val intent = android.content.Intent(requireContext(), org.weproz.etab.ui.notes.whiteboard.WhiteboardEditorActivity::class.java).apply {
+                            putExtra("whiteboard_title", title)
+                        }
+                        startActivity(intent)
+                    } else {
+                        Toast.makeText(requireContext(), "Title cannot be empty", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
     }
 

@@ -74,10 +74,55 @@ class WhiteboardView @JvmOverloads constructor(
         textSize = 60f
     }
 
+    // A4 Size at approx 300 DPI
+    private val PAGE_WIDTH = 2480f
+    private val PAGE_HEIGHT = 3508f
+    private val pageRect = RectF(0f, 0f, PAGE_WIDTH, PAGE_HEIGHT)
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        // Center and fit page initially
+        if (w > 0 && h > 0) {
+            val scaleX = w.toFloat() / PAGE_WIDTH
+            val scaleY = h.toFloat() / PAGE_HEIGHT
+            val scale = minOf(scaleX, scaleY) * 0.9f // 90% fit
+            
+            val dx = (w - PAGE_WIDTH * scale) / 2f
+            val dy = (h - PAGE_HEIGHT * scale) / 2f
+            
+            drawMatrix.reset()
+            drawMatrix.postScale(scale, scale)
+            drawMatrix.postTranslate(dx, dy)
+            drawMatrix.invert(inverseMatrix)
+        }
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        
+        // Draw Desk Background (Outside the page)
+        canvas.drawColor(Color.parseColor("#E0E0E0")) // Light Gray Desk
+
         canvas.save()
         canvas.concat(drawMatrix) // Apply zoom/pan transformation
+        
+        // Draw Page Shadow
+        val shadowPaint = Paint().apply {
+            color = Color.GRAY
+            style = Paint.Style.FILL
+            maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawRect(10f, 10f, PAGE_WIDTH + 10f, PAGE_HEIGHT + 10f, shadowPaint)
+
+        // Draw Page Background (White Paper)
+        val pagePaint = Paint().apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
+        }
+        canvas.drawRect(pageRect, pagePaint)
+
+        // Clip to Page Bounds for content
+        canvas.clipRect(pageRect)
         
         // 1. Draw Grid (Background)
         drawGrid(canvas)
@@ -144,8 +189,10 @@ class WhiteboardView @JvmOverloads constructor(
         // Convert touch coordinates to canvas coordinates
         val points = floatArrayOf(event.x, event.y)
         inverseMatrix.mapPoints(points)
-        val canvasX = points[0]
-        val canvasY = points[1]
+        
+        // Clamp to Page Bounds
+        val canvasX = points[0].coerceIn(0f, PAGE_WIDTH)
+        val canvasY = points[1].coerceIn(0f, PAGE_HEIGHT)
 
         // Two fingers -> Pan/Zoom
         if (event.pointerCount > 1) {
@@ -302,7 +349,11 @@ class WhiteboardView @JvmOverloads constructor(
         // Add text at center of current view
         val center = floatArrayOf(width / 2f, height / 2f)
         inverseMatrix.mapPoints(center)
-        paths.add(DrawAction.Text(text, center[0], center[1], drawColor, 60f))
+        
+        val x = center[0].coerceIn(50f, PAGE_WIDTH - 50f)
+        val y = center[1].coerceIn(50f, PAGE_HEIGHT - 50f)
+        
+        paths.add(DrawAction.Text(text, x, y, drawColor, 60f))
         invalidate()
     }
     
@@ -329,35 +380,20 @@ class WhiteboardView @JvmOverloads constructor(
     private fun drawGrid(canvas: Canvas) {
         if (gridType == GridType.NONE) return
         
-        // Calculate visible area to optimize drawing? 
-        // For MVP, drawing on a large fixed area or relative to view size transformed?
-        // Since we have infinite scroll potential with Pan, we should draw grid based on the visible rect in the inverse matrix.
-        
-        val width = width.toFloat()
-        val height = height.toFloat()
-        
-        // Map edges to canvas coordinates to know where to draw
-        val points = floatArrayOf(0f, 0f, width, height)
-        inverseMatrix.mapPoints(points)
-        
-        val left = points[0]
-        val top = points[1]
-        val right = points[2]
-        val bottom = points[3]
-        
         val gridSize = 100f // Gap
         
-        // Snap start to grid (use floor to handle negative coordinates text correctly)
-        val startX = kotlin.math.floor(left / gridSize).toInt() * gridSize
-        val startY = kotlin.math.floor(top / gridSize).toInt() * gridSize
+        val left = 0f
+        val top = 0f
+        val right = PAGE_WIDTH
+        val bottom = PAGE_HEIGHT
         
         when (gridType) {
             GridType.DOT -> {
                 gridPaint.style = Paint.Style.FILL
-                var y = startY
-                while (y < bottom + gridSize) {
-                    var x = startX
-                    while (x < right + gridSize) {
+                var y = top + gridSize
+                while (y < bottom) {
+                    var x = left + gridSize
+                    while (x < right) {
                         canvas.drawCircle(x, y, 4f, gridPaint)
                         x += gridSize
                     }
@@ -366,22 +402,22 @@ class WhiteboardView @JvmOverloads constructor(
             }
             GridType.SQUARE -> {
                 gridPaint.style = Paint.Style.STROKE
-                var x = startX
-                while (x < right + gridSize) {
-                    canvas.drawLine(x, top - gridSize, x, bottom + gridSize, gridPaint)
+                var x = left + gridSize
+                while (x < right) {
+                    canvas.drawLine(x, top, x, bottom, gridPaint)
                     x += gridSize
                 }
-                var y = startY
-                while (y < bottom + gridSize) {
-                    canvas.drawLine(left - gridSize, y, right + gridSize, y, gridPaint)
+                var y = top + gridSize
+                while (y < bottom) {
+                    canvas.drawLine(left, y, right, y, gridPaint)
                     y += gridSize
                 }
             }
             GridType.RULED -> {
                 gridPaint.style = Paint.Style.STROKE
-                var y = startY
-                while (y < bottom + gridSize) {
-                    canvas.drawLine(left - gridSize, y, right + gridSize, y, gridPaint)
+                var y = top + gridSize
+                while (y < bottom) {
+                    canvas.drawLine(left, y, right, y, gridPaint)
                     y += gridSize
                 }
             }
