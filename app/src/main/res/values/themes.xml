@@ -4,14 +4,12 @@
         <!-- Customize your light theme here. -->
         <item name="android:fontFamily">@font/inter</item>
         <item name="fontFamily">@font/inter</item>
+        <item name="android:statusBarColor">@android:color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <style name="Theme.ETab" parent="Base.Theme.ETab" />
 
     <style name="Theme.ETab.Fullscreen" parent="Theme.ETab">
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowActionBar">false</item>
-        <item name="android:windowFullscreen">true</item>
-        <item name="android:windowContentOverlay">@null</item>
     </style>
 </resources>

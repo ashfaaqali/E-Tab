@@ -23,6 +23,7 @@ import org.weproz.etab.data.local.WhiteboardEntity
 import org.weproz.etab.databinding.ActivityWhiteboardEditorBinding
 import java.io.File
 import java.io.FileOutputStream
+import androidx.core.view.size
 
 class WhiteboardEditorActivity : AppCompatActivity() {
 
@@ -245,6 +246,21 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.menu_whiteboard, menu)
         return true
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+        for (i in 0 until (menu?.size ?: 0)) {
+            val item = menu?.getItem(i)
+            val spanString = android.text.SpannableString(item?.title.toString())
+            spanString.setSpan(
+                android.text.style.ForegroundColorSpan(android.graphics.Color.BLACK),
+                0,
+                spanString.length,
+                0
+            )
+            item?.title = spanString
+        }
+        return super.onPrepareOptionsMenu(menu)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

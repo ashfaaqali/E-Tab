@@ -398,7 +398,6 @@ class ReaderActivity : AppCompatActivity() {
     private fun injectCustomContent(html: String): String {
         val js = """
             <style>
-                ::selection { background: transparent; }
                 #custom-menu {
                     position: absolute;
                     background: #333;
@@ -440,9 +439,32 @@ class ReaderActivity : AppCompatActivity() {
                         selectionRange = selection.getRangeAt(0);
                         
                         var rect = selectionRange.getBoundingClientRect();
-                        menu.style.top = (window.scrollY + rect.top - 40) + 'px';
-                        menu.style.left = (window.scrollX + rect.left) + 'px';
-                        menu.style.display = 'block';
+                        var scrollTop = window.scrollY || document.documentElement.scrollTop;
+                        var scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+                        
+                        menu.style.display = 'block'; // Show first to get dimensions
+                        var menuWidth = menu.offsetWidth;
+                        var menuHeight = menu.offsetHeight;
+                        
+                        // Default position: centered above selection
+                        var top = scrollTop + rect.top - menuHeight - 10;
+                        var left = scrollLeft + rect.left + (rect.width / 2) - (menuWidth / 2);
+                        
+                        // Check top boundary
+                        if (top < scrollTop) {
+                            // Position below selection
+                            top = scrollTop + rect.bottom + 10;
+                        }
+                        
+                        // Check left/right boundary
+                        if (left < 0) {
+                            left = 10;
+                        } else if (left + menuWidth > window.innerWidth) {
+                            left = window.innerWidth - menuWidth - 10;
+                        }
+                        
+                        menu.style.top = top + 'px';
+                        menu.style.left = left + 'px';
                     } else {
                         // Don't hide immediately to allow clicking buttons, 
                         // but actually selection clears when clicking button? 

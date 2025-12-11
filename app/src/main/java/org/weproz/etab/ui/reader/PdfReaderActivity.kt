@@ -35,6 +35,12 @@ class PdfReaderActivity : AppCompatActivity() {
         binding = ActivityPdfReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+            val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
 
         pdfPath = intent.getStringExtra("book_path")
 
