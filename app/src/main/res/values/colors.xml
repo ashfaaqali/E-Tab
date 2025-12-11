@@ -5,4 +5,25 @@
 
     <color name="background1">#14161B</color>
     <color name="background2">#1D1724</color>
+
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+
+    <!-- Light -->
+    <color name="purple_40">#6650A4</color>
+    <color name="on_surface_light">#1D1B20</color>
+    <color name="pink_40">#7D5260</color>
+
+    <!-- Dark -->
+    <color name="purple_80">#D0BCFF</color>
+    <color name="on_surface_dark">#000000</color>
+    <color name="pink_80">#EFB8C8</color>
+
+    <!-- Sepia -->
+    <color name="sepia_primary">#795548</color> <!-- you already had this -->
+    <color name="sepia_surface">#F5E5C9</color>
+    <color name="sepia_on_surface">#5B4B3A</color>
 </resources>

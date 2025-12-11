@@ -83,7 +83,8 @@ class BookAdapter(
             }
             
             // Cover loading based on book type
-            coverView.setImageDrawable(null) // Reset
+            coverView.setImageResource(R.drawable.app_logo) // Reset with app logo
+            coverView.scaleType = ImageView.ScaleType.CENTER_INSIDE
             coverView.tag = book.path // Tag for concurrency check
             
             when (book.type) {
@@ -93,12 +94,8 @@ class BookAdapter(
                     loadPdfCoverAsync(book.path, coverView)
                 }
                 BookType.EPUB -> {
-                    // Use EPUB color scheme
-                    val position = bindingAdapterPosition
-                    coverView.setBackgroundColor(
-                        if (position % 2 == 0) Color.parseColor("#1E88E5") // Blue
-                        else Color.parseColor("#43A047") // Green
-                    )
+                    // White background with app logo for EPUB
+                    coverView.setBackgroundColor(Color.WHITE)
                     loadEpubCoverAsync(book.path, coverView)
                 }
             }

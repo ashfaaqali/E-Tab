@@ -13,7 +13,7 @@
 
     <item
         android:id="@+id/navigation_dictionary"
-        android:icon="@android:drawable/ic_menu_sort_by_size"
+        android:icon="@drawable/dictionary"
         android:title="Dictionary" />
 
 </menu>

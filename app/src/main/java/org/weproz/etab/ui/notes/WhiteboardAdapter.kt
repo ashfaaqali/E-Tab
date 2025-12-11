@@ -1,10 +1,13 @@
 package org.weproz.etab.ui.notes
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.ImageView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import org.weproz.etab.R
 import org.weproz.etab.data.local.WhiteboardEntity
 import org.weproz.etab.databinding.ItemWhiteboardBinding
 
@@ -26,12 +29,17 @@ class WhiteboardAdapter(
     inner class ViewHolder(private val binding: ItemWhiteboardBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(whiteboard: WhiteboardEntity) {
             binding.textWbTitle.text = whiteboard.title
-            // TODO: Load thumbnail using Glide/Coil or manual bitmap loading
-             binding.root.setOnClickListener { onItemClick(whiteboard) }
-             binding.root.setOnLongClickListener {
-                 onItemLongClick(whiteboard)
-                 true
-             }
+
+            // Set whiteboard logo on white background
+            binding.imageWbThumbnail.setBackgroundColor(Color.WHITE)
+            //binding.imageWbThumbnail.setImageResource(R.drawable.whiteboard_logo)
+            binding.imageWbThumbnail.scaleType = ImageView.ScaleType.CENTER_INSIDE
+
+            binding.root.setOnClickListener { onItemClick(whiteboard) }
+            binding.root.setOnLongClickListener {
+                onItemLongClick(whiteboard)
+                true
+            }
         }
     }
 

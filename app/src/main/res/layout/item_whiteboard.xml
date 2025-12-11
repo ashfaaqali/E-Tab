@@ -17,9 +17,9 @@
             android:id="@+id/image_wb_thumbnail"
             android:layout_width="match_parent"
             android:layout_height="120dp"
-            android:scaleType="centerCrop"
-            android:background="#E0E0E0"
-            app:srcCompat="@drawable/ic_launcher_foreground" />
+            android:padding="20dp"
+            android:background="@color/white"
+            android:src="@drawable/whiteboard_logo" />
 
         <TextView
             android:id="@+id/text_wb_title"
