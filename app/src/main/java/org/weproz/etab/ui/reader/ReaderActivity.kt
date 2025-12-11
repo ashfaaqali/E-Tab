@@ -472,20 +472,39 @@ class ReaderActivity : AppCompatActivity() {
                     padding: 4px 8px;
                     font-size: 14px;
                 }
+                .separator {
+                    width: 1px; 
+                    height: 16px; 
+                    background: #555; 
+                    display: inline-block; 
+                    vertical-align: middle; 
+                    margin: 0 4px;
+                }
                 .highlighted {
                     background-color: yellow;
                 }
             </style>
             <div id="custom-menu">
-                <button onclick="defineWord()">Define</button>
-                <div style="width: 1px; height: 16px; background: #555; display: inline-block; vertical-align: middle; margin: 0 4px;"></div>
-                <button onclick="highlightText()">Highlight</button>
-                <div style="width: 1px; height: 16px; background: #555; display: inline-block; vertical-align: middle; margin: 0 4px;"></div>
-                <button onclick="copyText()">Copy</button>
+                <button id="btn-define" onclick="defineWord()">Define</button>
+                <div class="separator"></div>
+                <button id="btn-highlight" onclick="highlightText()">Highlight</button>
+                <div class="separator"></div>
+                <button id="btn-copy" onclick="copyText()">Copy</button>
+                <button id="btn-remove" onclick="removeHighlight()" style="display:none">Remove Highlight</button>
             </div>
             <script>
                 var selectedText = "";
                 var selectionRange = null;
+                var clickedHighlight = null;
+
+                function resetMenuButtons() {
+                    document.getElementById('btn-define').style.display = 'inline-block';
+                    document.getElementById('btn-highlight').style.display = 'inline-block';
+                    document.getElementById('btn-copy').style.display = 'inline-block';
+                    var separators = document.getElementsByClassName('separator');
+                    for(var i=0; i<separators.length; i++) separators[i].style.display = 'inline-block';
+                    document.getElementById('btn-remove').style.display = 'none';
+                }
 
                 document.addEventListener('selectionchange', function() {
                     var selection = window.getSelection();
@@ -495,40 +514,108 @@ class ReaderActivity : AppCompatActivity() {
                         selectedText = selection.toString();
                         selectionRange = selection.getRangeAt(0);
                         
+                        // Check if selection is inside a highlight OR contains a highlight
+                        var isHighlighted = false;
+                        
+                        // 1. Check if selection is inside a highlight (ancestor check)
+                        var parent = selectionRange.commonAncestorContainer;
+                        if (parent.nodeType === 3) { // Text node
+                            parent = parent.parentNode;
+                        }
+                        if (parent.classList.contains('highlighted')) {
+                            isHighlighted = true;
+                            clickedHighlight = parent;
+                        }
+                        
+                        // 2. Check if selection contains any highlighted elements (descendant check)
+                        if (!isHighlighted) {
+                            var div = document.createElement('div');
+                            div.appendChild(selectionRange.cloneContents());
+                            if (div.querySelector('.highlighted')) {
+                                isHighlighted = true;
+                                clickedHighlight = null; // Will need to find it during removal
+                            }
+                        }
+                        
+                        if (isHighlighted) {
+                            // Show Define, Remove Highlight, Copy
+                            document.getElementById('btn-define').style.display = 'inline-block';
+                            document.getElementById('btn-highlight').style.display = 'none';
+                            document.getElementById('btn-copy').style.display = 'inline-block';
+                            document.getElementById('btn-remove').style.display = 'inline-block';
+                            
+                            // Ensure separators are visible
+                            var separators = document.getElementsByClassName('separator');
+                            for(var i=0; i<separators.length; i++) separators[i].style.display = 'inline-block';
+                        } else {
+                            // Show Define, Highlight, Copy
+                            resetMenuButtons();
+                        }
+                        
                         var rect = selectionRange.getBoundingClientRect();
                         var scrollTop = window.scrollY || document.documentElement.scrollTop;
                         var scrollLeft = window.scrollX || document.documentElement.scrollLeft;
                         
-                        menu.style.display = 'block'; // Show first to get dimensions
+                        menu.style.display = 'block';
                         var menuWidth = menu.offsetWidth;
                         var menuHeight = menu.offsetHeight;
                         
-                        // Default position: centered above selection
                         var top = scrollTop + rect.top - menuHeight - 10;
                         var left = scrollLeft + rect.left + (rect.width / 2) - (menuWidth / 2);
                         
-                        // Check top boundary
-                        if (top < scrollTop) {
-                            // Position below selection
-                            top = scrollTop + rect.bottom + 10;
-                        }
-                        
-                        // Check left/right boundary
-                        if (left < 0) {
-                            left = 10;
-                        } else if (left + menuWidth > window.innerWidth) {
-                            left = window.innerWidth - menuWidth - 10;
-                        }
+                        if (top < scrollTop) top = scrollTop + rect.bottom + 10;
+                        if (left < 0) left = 10;
+                        if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
                         
                         menu.style.top = top + 'px';
                         menu.style.left = left + 'px';
                     } else {
-                        // Don't hide immediately to allow clicking buttons, 
-                        // but actually selection clears when clicking button? 
-                        // We need to handle mousedown on menu to prevent clearing selection?
-                        // Or just use touch events.
-                        // For simplicity, we hide if selection is empty.
-                         menu.style.display = 'none';
+                        menu.style.display = 'none';
+                    }
+                });
+
+                document.addEventListener('click', function(e) {
+                    var menu = document.getElementById('custom-menu');
+                    if (e.target.classList.contains('highlighted')) {
+                        clickedHighlight = e.target;
+                        selectedText = e.target.textContent;
+                        
+                        // Show Define, Remove Highlight, Copy
+                        document.getElementById('btn-define').style.display = 'inline-block';
+                        document.getElementById('btn-highlight').style.display = 'none';
+                        document.getElementById('btn-copy').style.display = 'inline-block';
+                        document.getElementById('btn-remove').style.display = 'inline-block';
+                        
+                        var separators = document.getElementsByClassName('separator');
+                        for(var i=0; i<separators.length; i++) separators[i].style.display = 'inline-block';
+                        
+                        menu.style.display = 'block';
+                        
+                        var rect = e.target.getBoundingClientRect();
+                        var scrollTop = window.scrollY || document.documentElement.scrollTop;
+                        var scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+                        
+                        // Force layout to get correct dimensions
+                        var menuWidth = menu.offsetWidth; 
+                        if (menuWidth === 0) menuWidth = 150; // Fallback
+                        
+                        var top = scrollTop + rect.top - menu.offsetHeight - 10;
+                        var left = scrollLeft + rect.left + (rect.width / 2) - (menuWidth / 2);
+                        
+                        if (top < scrollTop) top = scrollTop + rect.bottom + 10;
+                        if (left < 0) left = 10;
+                        if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
+                        
+                        menu.style.top = top + 'px';
+                        menu.style.left = left + 'px';
+                        
+                        e.stopPropagation();
+                    } else if (!menu.contains(e.target)) {
+                        // Clicked outside menu
+                        if (document.getElementById('btn-remove').style.display !== 'none') {
+                             menu.style.display = 'none';
+                             resetMenuButtons();
+                        }
                     }
                 });
 
@@ -542,32 +629,58 @@ class ReaderActivity : AppCompatActivity() {
                     document.getElementById('custom-menu').style.display = 'none';
                 }
 
+                function removeHighlight() {
+                    // Case 1: Clicked on a specific highlight or selection is inside one
+                    if (clickedHighlight) {
+                        var text = clickedHighlight.textContent;
+                        var rangeData = clickedHighlight.getAttribute('data-range');
+                        
+                        Android.onRemoveHighlight(text, rangeData);
+                        
+                        var parent = clickedHighlight.parentNode;
+                        parent.replaceChild(document.createTextNode(text), clickedHighlight);
+                        parent.normalize();
+                        
+                        clickedHighlight = null;
+                    } 
+                    // Case 2: Selection contains highlights
+                    else if (selectionRange) {
+                        // We need to find all highlights within the selection
+                        // This is tricky because selectionRange might partially overlap
+                        // But for now, let's handle fully contained highlights which is common
+                        
+                        // We can iterate over all .highlighted elements and check if they intersect the range
+                        var highlights = document.getElementsByClassName('highlighted');
+                        // Convert to array to avoid live collection issues during removal
+                        var highlightsArray = Array.from(highlights);
+                        
+                        for (var i = 0; i < highlightsArray.length; i++) {
+                            var el = highlightsArray[i];
+                            if (selectionRange.intersectsNode(el)) {
+                                var text = el.textContent;
+                                var rangeData = el.getAttribute('data-range');
+                                
+                                Android.onRemoveHighlight(text, rangeData);
+                                
+                                var parent = el.parentNode;
+                                parent.replaceChild(document.createTextNode(text), el);
+                                parent.normalize();
+                            }
+                        }
+                    }
+                    
+                    document.getElementById('custom-menu').style.display = 'none';
+                    resetMenuButtons();
+                    window.getSelection().removeAllRanges();
+                }
+
                 function highlightText() {
                     if (selectionRange) {
-                        // Calculate occurrence index
                         var index = 0;
                         var tempRange = document.createRange();
                         tempRange.selectNodeContents(document.body);
                         tempRange.setEnd(selectionRange.startContainer, selectionRange.startOffset);
                         var precedingText = tempRange.toString();
-                        
-                        // Count occurrences of selectedText in precedingText
-                        // We need to be careful with overlapping or partial matches, but simple split is okay for now
-                        // Note: This depends on how toString() behaves vs innerText. 
-                        // A safer way is to use a marker.
-                        
-                        // Method 2: Marker
-                        var marker = document.createElement('span');
-                        marker.id = 'temp-marker';
-                        selectionRange.insertNode(marker);
-                        var bodyHtml = document.body.innerHTML;
-                        var markerIndex = bodyHtml.indexOf('id="temp-marker"');
-                        
-                        // Remove marker
-                        marker.parentNode.removeChild(marker);
-                        
-                        // This is getting complicated because innerHTML changes.
-                        // Let's stick to text content counting.
                         
                         var count = 0;
                         var pos = precedingText.indexOf(selectedText);
@@ -580,6 +693,7 @@ class ReaderActivity : AppCompatActivity() {
                         var span = document.createElement('span');
                         span.className = 'highlighted';
                         span.textContent = selectedText;
+                        span.setAttribute('data-range', index.toString());
                         selectionRange.deleteContents();
                         selectionRange.insertNode(span);
                         
@@ -592,9 +706,8 @@ class ReaderActivity : AppCompatActivity() {
                 
                 function restoreHighlight(text, indexStr) {
                     var targetIndex = parseInt(indexStr);
-                    if (isNaN(targetIndex)) targetIndex = 0; // Fallback
+                    if (isNaN(targetIndex)) targetIndex = 0;
                     
-                    // Walk text nodes to find the Nth occurrence
                     var walker = document.createTreeWalker(
                         document.body,
                         NodeFilter.SHOW_TEXT,
@@ -611,7 +724,6 @@ class ReaderActivity : AppCompatActivity() {
                         
                         while (pos !== -1) {
                             if (matchCount === targetIndex) {
-                                // Found it!
                                 var range = document.createRange();
                                 range.setStart(currentNode, pos);
                                 range.setEnd(currentNode, pos + text.length);
@@ -619,9 +731,10 @@ class ReaderActivity : AppCompatActivity() {
                                 var span = document.createElement('span');
                                 span.className = 'highlighted';
                                 span.textContent = text;
+                                span.setAttribute('data-range', indexStr);
                                 range.deleteContents();
                                 range.insertNode(span);
-                                return; // Done
+                                return;
                             }
                             matchCount++;
                             pos = nodeValue.indexOf(text, pos + 1);
@@ -686,6 +799,18 @@ class ReaderActivity : AppCompatActivity() {
                     color = -256 // Yellow
                 )
                 AppDatabase.getDatabase(this@ReaderActivity).highlightDao().insert(highlight)
+            }
+        }
+
+        @JavascriptInterface
+        fun onRemoveHighlight(text: String, rangeData: String) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                AppDatabase.getDatabase(this@ReaderActivity).highlightDao().deleteHighlight(
+                    bookPath = bookPath!!,
+                    chapterIndex = currentChapterIndex,
+                    rangeData = rangeData,
+                    text = text
+                )
             }
         }
 
