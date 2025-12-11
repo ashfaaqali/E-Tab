@@ -61,7 +61,7 @@ class BooksFragment : Fragment() {
             "Delete Book"
         )
 
-        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+        org.weproz.etab.ui.custom.CustomDialog(requireContext())
             .setTitle(book.title)
             .setItems(options) { dialog, which ->
                 when (which) {
@@ -74,14 +74,15 @@ class BooksFragment : Fragment() {
     }
 
     private fun showDeleteConfirmation(book: BookEntity) {
-        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+        org.weproz.etab.ui.custom.CustomDialog(requireContext())
             .setTitle("Delete Book")
             .setMessage("Are you sure you want to delete '${book.title}'? This will remove the file from your device.")
-            .setPositiveButton("Delete") { _, _ ->
+            .setPositiveButton("Delete") { dialog ->
                 viewModel.deleteBook(book)
                 Toast.makeText(requireContext(), "Book deleted", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Cancel")
             .show()
     }
 

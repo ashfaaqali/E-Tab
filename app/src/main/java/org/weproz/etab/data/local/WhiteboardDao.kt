@@ -13,6 +13,9 @@ interface WhiteboardDao {
     @Query("SELECT * FROM whiteboards ORDER BY updatedAt DESC")
     fun getAllWhiteboards(): Flow<List<WhiteboardEntity>>
 
+    @Query("SELECT * FROM whiteboards")
+    suspend fun getAllWhiteboardsList(): List<WhiteboardEntity>
+
     @Query("SELECT * FROM whiteboards WHERE dataPath = :dataPath LIMIT 1")
     suspend fun getWhiteboardByDataPath(dataPath: String): WhiteboardEntity?
 

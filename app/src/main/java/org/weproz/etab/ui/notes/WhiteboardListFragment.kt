@@ -35,12 +35,25 @@ class WhiteboardListFragment : Fragment() {
         
         val adapter = WhiteboardAdapter(
             onItemClick = { whiteboard ->
-                val intent = android.content.Intent(requireContext(), org.weproz.etab.ui.notes.whiteboard.WhiteboardEditorActivity::class.java).apply {
-                    putExtra("whiteboard_id", whiteboard.id)
-                    putExtra("whiteboard_title", whiteboard.title)
-                    putExtra("whiteboard_data_path", whiteboard.dataPath)
+                val file = java.io.File(whiteboard.dataPath)
+                if (file.exists()) {
+                    val intent = android.content.Intent(requireContext(), org.weproz.etab.ui.notes.whiteboard.WhiteboardEditorActivity::class.java).apply {
+                        putExtra("whiteboard_id", whiteboard.id)
+                        putExtra("whiteboard_title", whiteboard.title)
+                        putExtra("whiteboard_data_path", whiteboard.dataPath)
+                    }
+                    startActivity(intent)
+                } else {
+                    org.weproz.etab.ui.custom.CustomDialog(requireContext())
+                        .setTitle("File Not Found")
+                        .setMessage("The whiteboard file '${whiteboard.title}' could not be found. It may have been deleted externally. Do you want to remove it from the list?")
+                        .setPositiveButton("Remove") { dialog ->
+                            viewModel.deleteWhiteboard(whiteboard)
+                            dialog.dismiss()
+                        }
+                        .setNegativeButton("Cancel")
+                        .show()
                 }
-                startActivity(intent)
             },
             onItemLongClick = { whiteboard ->
                 val options = arrayOf("Rename", "Share as PDF", "Delete")

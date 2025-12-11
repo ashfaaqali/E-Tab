@@ -116,11 +116,6 @@ class PdfReaderActivity : AppCompatActivity() {
             showControlsTemporarily()
         }
 
-        // Notes toggle for split view
-        binding.btnNotesToggle.setOnClickListener {
-            toggleSplitView()
-        }
-
         // Page slider
         binding.pageSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -196,49 +191,69 @@ class PdfReaderActivity : AppCompatActivity() {
         } else {
             // Split screen mode - create a NEW whiteboard each time
             if (pdfPath != null) {
-                // Use timestamp to create unique file path for each session
-                val timestamp = System.currentTimeMillis()
-                val notesPath = File(getExternalFilesDir(null), "wb_pdf_$timestamp.json").absolutePath
-                val newFragment = org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment.newInstance(notesPath)
-                supportFragmentManager.beginTransaction()
-                    .replace(R.id.whiteboard_container, newFragment)
-                    .commit()
+                val input = android.widget.EditText(this)
+                input.hint = "Whiteboard Title"
+                
+                org.weproz.etab.ui.custom.CustomDialog(this)
+                    .setTitle("New Whiteboard")
+                    .setView(input)
+                    .setPositiveButton("Create") { dialog ->
+                        val title = input.text.toString().trim()
+                        if (title.isNotEmpty()) {
+                            startSplitView(title)
+                            dialog.dismiss()
+                        } else {
+                            Toast.makeText(this, "Title cannot be empty", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .setNegativeButton("Cancel")
+                    .show()
             }
-
-            binding.whiteboardContainer.visibility = View.VISIBLE
-            binding.splitHandle.visibility = View.VISIBLE
-
-            setupSplitDrag()
-
-            // Set guideline to 50%
-            val guideParams = binding.splitGuideline.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            guideParams.guidePercent = 0.5f
-            binding.splitGuideline.layoutParams = guideParams
-
-            // PDF Viewer constraints
-            val pdfParams = binding.pdfViewer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            pdfParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            pdfParams.bottomToTop = R.id.split_guideline
-            pdfParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            pdfParams.topToBottom = R.id.top_action_bar
-            pdfParams.height = 0
-            binding.pdfViewer.layoutParams = pdfParams
-
-            // Whiteboard container constraints
-            val containerParams = binding.whiteboardContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            containerParams.topToBottom = R.id.split_guideline
-            containerParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            containerParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-            containerParams.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            containerParams.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-            containerParams.endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-            containerParams.height = 0
-            containerParams.width = 0
-            binding.whiteboardContainer.layoutParams = containerParams
-
-            binding.root.requestLayout()
-            isSplitView = true
         }
+    }
+
+    private fun startSplitView(title: String) {
+        // Use timestamp to create unique file path for each session
+        val timestamp = System.currentTimeMillis()
+        val notesPath = File(getExternalFilesDir(null), "wb_pdf_$timestamp.json").absolutePath
+        val newFragment = org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment.newInstance(notesPath, title)
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.whiteboard_container, newFragment)
+            .commit()
+
+        binding.whiteboardContainer.visibility = View.VISIBLE
+        binding.splitHandle.visibility = View.VISIBLE
+
+        setupSplitDrag()
+
+        // Set guideline to 50%
+        val guideParams = binding.splitGuideline.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+        guideParams.guidePercent = 0.5f
+        binding.splitGuideline.layoutParams = guideParams
+
+        // PDF Viewer constraints
+        val pdfParams = binding.pdfViewer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+        pdfParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+        pdfParams.bottomToTop = R.id.split_guideline
+        pdfParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+        pdfParams.topToBottom = R.id.top_action_bar
+        pdfParams.height = 0
+        binding.pdfViewer.layoutParams = pdfParams
+
+        // Whiteboard container constraints
+        val containerParams = binding.whiteboardContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+        containerParams.topToBottom = R.id.split_guideline
+        containerParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+        containerParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+        containerParams.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+        containerParams.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+        containerParams.endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+        containerParams.height = 0
+        containerParams.width = 0
+        binding.whiteboardContainer.layoutParams = containerParams
+
+        binding.root.requestLayout()
+        isSplitView = true
     }
 
     @SuppressLint("ClickableViewAccessibility")

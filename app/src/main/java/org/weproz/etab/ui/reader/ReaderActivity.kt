@@ -36,7 +36,8 @@ class ReaderActivity : AppCompatActivity() {
 
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
-            val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            val systemBars =
+                insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
@@ -59,12 +60,13 @@ class ReaderActivity : AppCompatActivity() {
 
         setupNavigation()
     }
-    
+
     override fun onPause() {
         super.onPause()
         // Save whiteboard when activity is paused
         if (isSplitView) {
-            val fragment = supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
+            val fragment =
+                supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
             fragment?.saveWhiteboard()
         }
     }
@@ -74,12 +76,12 @@ class ReaderActivity : AppCompatActivity() {
         binding.btnOverlayPrev.animate().alpha(0f).setDuration(500).start()
         binding.btnOverlayNext.animate().alpha(0f).setDuration(500).start()
     }
-    
+
     @SuppressLint("ClickableViewAccessibility")
     private fun setupNavigation() {
         // Initial state
         showNavigation()
-        
+
         // Back button
         binding.btnBack.setOnClickListener {
             finish()
@@ -94,48 +96,50 @@ class ReaderActivity : AppCompatActivity() {
             prevChapter()
             showNavigation()
         }
-        
+
         binding.btnOverlayNext.setOnClickListener {
             nextChapter()
             showNavigation()
         }
-        
+
         binding.btnNotesToggle.setOnClickListener {
             toggleSplitView()
         }
-        
-        val gestureDetector = android.view.GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapUp(e: android.view.MotionEvent): Boolean {
-                val width = binding.webview.width
-                val x = e.x
-                
-                // Check if tapping a link?
-                // For now, strict zones.
-                if (x < width * 0.25) { // Left 25%
-                    prevChapter()
-                    showNavigation()
-                    return true
-                } else if (x > width * 0.75) { // Right 25%
-                    nextChapter()
-                    showNavigation()
-                    return true
-                } else {
-                    // Center tap - just toggle/show controls
-                    showNavigation()
+
+        val gestureDetector = android.view.GestureDetector(
+            this,
+            object : android.view.GestureDetector.SimpleOnGestureListener() {
+                override fun onSingleTapUp(e: android.view.MotionEvent): Boolean {
+                    val width = binding.webview.width
+                    val x = e.x
+
+                    // Check if tapping a link?
+                    // For now, strict zones.
+                    if (x < width * 0.25) { // Left 25%
+                        prevChapter()
+                        showNavigation()
+                        return true
+                    } else if (x > width * 0.75) { // Right 25%
+                        nextChapter()
+                        showNavigation()
+                        return true
+                    } else {
+                        // Center tap - just toggle/show controls
+                        showNavigation()
+                    }
+                    return false
                 }
-                return false
-            }
-            
-            override fun onDown(e: android.view.MotionEvent): Boolean = false
-        })
-        
+
+                override fun onDown(e: android.view.MotionEvent): Boolean = false
+            })
+
         binding.webview.setOnTouchListener { v, event ->
-             gestureDetector.onTouchEvent(event)
-             // Return false to allow WebView to handle other touch events (scrolling, links)
-             false 
+            gestureDetector.onTouchEvent(event)
+            // Return false to allow WebView to handle other touch events (scrolling, links)
+            false
         }
     }
-    
+
     private fun showNavigation() {
         binding.btnOverlayPrev.animate().cancel()
         binding.btnOverlayNext.animate().cancel()
@@ -143,17 +147,17 @@ class ReaderActivity : AppCompatActivity() {
         binding.btnOverlayNext.alpha = 1f
         binding.btnOverlayPrev.visibility = View.VISIBLE
         binding.btnOverlayNext.visibility = View.VISIBLE
-        
+
         hideNavHandler.removeCallbacks(hideNavRunnable)
         hideNavHandler.postDelayed(hideNavRunnable, 3000) // Hide after 3 seconds
     }
-    
+
     private fun prevChapter() {
         if (currentChapterIndex > 0) {
             displayChapter(currentChapterIndex - 1)
         }
     }
-    
+
     private fun nextChapter() {
         currentBook?.let { book ->
             if (currentChapterIndex < book.spine.size() - 1) {
@@ -161,76 +165,112 @@ class ReaderActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private var isSplitView = false
-    
+
     private fun toggleSplitView() {
         android.util.Log.d("ReaderActivity", "toggleSplitView: $isSplitView -> ${!isSplitView}")
         if (isSplitView) {
             // Save whiteboard before closing
-            val fragment = supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
+            val fragment =
+                supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
             fragment?.saveWhiteboard()
 
             // Restore Full Screen
             binding.whiteboardContainer.visibility = View.GONE
             binding.splitHandle.visibility = View.GONE
             binding.webview.visibility = View.VISIBLE
-            
-            val params = binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            params.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-            params.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+
+            val params =
+                binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            params.bottomToBottom =
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            params.bottomToTop =
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
             params.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
             params.topToBottom = R.id.top_action_bar
             params.height = 0
             params.matchConstraintPercentHeight = 1.0f // Ensure full height logic works
             binding.webview.layoutParams = params
-            
+
             isSplitView = false
         } else {
             // Split Screen - create a NEW whiteboard each time
             if (bookPath != null) {
-                // Use timestamp to create unique file path for each session
-                val timestamp = System.currentTimeMillis()
-                val notesPath = java.io.File(getExternalFilesDir(null), "wb_book_$timestamp.json").absolutePath
-                val newFragment = org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment.newInstance(notesPath)
-                supportFragmentManager.beginTransaction().replace(R.id.whiteboard_container, newFragment).commit()
-            }
-            
-            binding.whiteboardContainer.visibility = View.VISIBLE
-            binding.splitHandle.visibility = View.VISIBLE
-            
-            setupSplitDrag()
-            
-            // Force Guideline to 50%
-            val guideParams = binding.splitGuideline.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            guideParams.guidePercent = 0.5f
-            binding.splitGuideline.layoutParams = guideParams
-            
-            // WebView Constraints
-            val webParams = binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            webParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            webParams.bottomToTop = R.id.split_guideline
-            webParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            webParams.topToBottom = R.id.top_action_bar
-            webParams.height = 0
-            // webParams.matchConstraintPercentHeight = 1.0f // REMOVED to allow anchors to determine height
-            binding.webview.layoutParams = webParams
+                val input = android.widget.EditText(this)
+                input.hint = "Whiteboard Title"
 
-            // Container Constraints
-            val containerParams = binding.whiteboardContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            containerParams.topToBottom = R.id.split_guideline
-            containerParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            containerParams.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-            containerParams.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-            containerParams.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-            containerParams.endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-            containerParams.height = 0
-            containerParams.width = 0 // Match Constraint
-            binding.whiteboardContainer.layoutParams = containerParams
-            
-            binding.root.requestLayout()
-            isSplitView = true
+                org.weproz.etab.ui.custom.CustomDialog(this)
+                    .setTitle("New Whiteboard")
+                    .setView(input)
+                    .setPositiveButton("Create") { dialog ->
+                        val title = input.text.toString().trim()
+                        if (title.isNotEmpty()) {
+                            startSplitView(title)
+                            dialog.dismiss()
+                        } else {
+                            Toast.makeText(this, "Title cannot be empty", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .setNegativeButton("Cancel")
+                    .show()
+            }
         }
+    }
+
+    private fun startSplitView(title: String) {
+        // Use timestamp to create unique file path for each session
+        val timestamp = System.currentTimeMillis()
+        val notesPath =
+            java.io.File(getExternalFilesDir(null), "wb_book_$timestamp.json").absolutePath
+        val newFragment =
+            org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment.newInstance(notesPath, title)
+        supportFragmentManager.beginTransaction().replace(R.id.whiteboard_container, newFragment)
+            .commit()
+
+        binding.whiteboardContainer.visibility = View.VISIBLE
+        binding.splitHandle.visibility = View.VISIBLE
+
+        setupSplitDrag()
+
+        // Force Guideline to 50%
+        val guideParams =
+            binding.splitGuideline.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+        guideParams.guidePercent = 0.5f
+        binding.splitGuideline.layoutParams = guideParams
+
+        // WebView Constraints
+        val webParams =
+            binding.webview.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+        webParams.bottomToBottom =
+            androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+        webParams.bottomToTop = R.id.split_guideline
+        webParams.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+        webParams.topToBottom = R.id.top_action_bar
+        webParams.height = 0
+        // webParams.matchConstraintPercentHeight = 1.0f // REMOVED to allow anchors to determine height
+        binding.webview.layoutParams = webParams
+
+        // Container Constraints
+        val containerParams =
+            binding.whiteboardContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+        containerParams.topToBottom = R.id.split_guideline
+        containerParams.topToTop =
+            androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+        containerParams.bottomToBottom =
+            androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+        containerParams.bottomToTop =
+            androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+        containerParams.startToStart =
+            androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+        containerParams.endToEnd =
+            androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+        containerParams.height = 0
+        containerParams.width = 0 // Match Constraint
+        binding.whiteboardContainer.layoutParams = containerParams
+
+        binding.root.requestLayout()
+        isSplitView = true
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -244,12 +284,13 @@ class ReaderActivity : AppCompatActivity() {
                         // We use the rawY to get global position, but we need relative to root if root is offset?
                         // Assuming ReaderActivity is full screen essentially.
                         var percent = event.rawY / rootHeight
-                        
+
                         // Clamp
                         if (percent < 0.2f) percent = 0.2f
                         if (percent > 0.8f) percent = 0.8f
-                        
-                        val params = binding.splitGuideline.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+
+                        val params =
+                            binding.splitGuideline.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
                         params.guidePercent = percent
                         binding.splitGuideline.layoutParams = params
                     }
@@ -278,33 +319,42 @@ class ReaderActivity : AppCompatActivity() {
                 restoreHighlights()
             }
 
-            override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: android.webkit.WebResourceRequest?
+            ): android.webkit.WebResourceResponse? {
                 val url = request?.url?.toString() ?: return null
-                
+
                 // We use a custom local domain to avoid file:// security restrictions
                 val localDomain = "https://etab.local/"
-                
+
                 if (url.startsWith(localDomain)) {
                     val relativePath = url.removePrefix(localDomain)
                     val decodedPath = java.net.URLDecoder.decode(relativePath, "UTF-8")
-                    
-                    android.util.Log.d("ReaderActivity", "Requesting: $url -> Decoded: $decodedPath")
-                    
+
+                    android.util.Log.d(
+                        "ReaderActivity",
+                        "Requesting: $url -> Decoded: $decodedPath"
+                    )
+
                     // Logic to find resource:
                     // Requests might be "OEBPS/images/img.jpg" or just "images/img.jpg" depending on resolution.
                     // We try to find a resource whose href ends with the requested path.
-                    
+
                     var resource = currentBook?.resources?.getByHref(decodedPath)
-                    
+
                     if (resource == null) {
-                         currentBook?.resources?.all?.forEach { res ->
-                             // More robust fuzzy match:
-                             // If res.href is "OEBPS/images/cover.jpg" and request is "images/cover.jpg", it matches.
-                             if (res.href == decodedPath || res.href.endsWith(decodedPath) || decodedPath.endsWith(res.href)) {
-                                 resource = res
-                                 return@forEach
-                             }
-                         }
+                        currentBook?.resources?.all?.forEach { res ->
+                            // More robust fuzzy match:
+                            // If res.href is "OEBPS/images/cover.jpg" and request is "images/cover.jpg", it matches.
+                            if (res.href == decodedPath || res.href.endsWith(decodedPath) || decodedPath.endsWith(
+                                    res.href
+                                )
+                            ) {
+                                resource = res
+                                return@forEach
+                            }
+                        }
                     }
 
                     if (resource != null) {
@@ -315,7 +365,7 @@ class ReaderActivity : AppCompatActivity() {
                             resource.inputStream
                         )
                     } else {
-                         android.util.Log.w("ReaderActivity", "Resource NOT found for: $decodedPath")
+                        android.util.Log.w("ReaderActivity", "Resource NOT found for: $decodedPath")
                     }
                 }
                 return super.shouldInterceptRequest(view, request)
@@ -329,7 +379,10 @@ class ReaderActivity : AppCompatActivity() {
                 android.util.Log.d("ReaderActivity", "Loading book from: $path")
                 val inputStream = FileInputStream(path)
                 currentBook = EpubReader().readEpub(inputStream)
-                android.util.Log.d("ReaderActivity", "Book loaded. Title: ${currentBook?.title}, Spine size: ${currentBook?.spine?.size()}")
+                android.util.Log.d(
+                    "ReaderActivity",
+                    "Book loaded. Title: ${currentBook?.title}, Spine size: ${currentBook?.spine?.size()}"
+                )
 
                 // Get last read chapter
                 val dao = AppDatabase.getDatabase(this@ReaderActivity).bookDao()
@@ -348,7 +401,8 @@ class ReaderActivity : AppCompatActivity() {
                 e.printStackTrace()
                 android.util.Log.e("ReaderActivity", "Error loading book", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@ReaderActivity, "Failed to parse epub", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ReaderActivity, "Failed to parse epub", Toast.LENGTH_SHORT)
+                        .show()
                 }
             }
         }
@@ -359,30 +413,33 @@ class ReaderActivity : AppCompatActivity() {
         currentBook?.let { book ->
             if (index < book.spine.size()) {
                 val resource = book.spine.getResource(index)
-                android.util.Log.d("ReaderActivity", "Displaying chapter $index. Resource href: ${resource.href}, Size: ${resource.size}")
+                android.util.Log.d(
+                    "ReaderActivity",
+                    "Displaying chapter $index. Resource href: ${resource.href}, Size: ${resource.size}"
+                )
                 val rawContent = String(resource.data)
-                
+
                 // Save current chapter to database
                 saveLastReadChapter(index)
 
                 // Inject JS and CSS
                 val content = injectCustomContent(rawContent)
-                
+
                 // Use HTTPS base URL to allow confident interception and avoid file:// restrictions
                 // We append the directory of the current chapter to the base so relative links work.
                 // e.g. if chapter is "OEBPS/content.html", base is "https://etab.local/OEBPS/"
                 // So <img src="../img.jpg"> becomes "https://etab.local/img.jpg"
-                
+
                 // Simple approach: Just use the href as the "path" part of the URL
                 val baseUrl = "https://etab.local/" + resource.href
-                
+
                 android.util.Log.d("ReaderActivity", "Loading into WebView with BaseURL: $baseUrl")
                 binding.webview.loadDataWithBaseURL(baseUrl, content, "text/html", "UTF-8", null)
             } else {
                 android.util.Log.e("ReaderActivity", "Invalid chapter index: $index")
             }
         } ?: run {
-             android.util.Log.e("ReaderActivity", "Current book is null")
+            android.util.Log.e("ReaderActivity", "Current book is null")
         }
     }
 
@@ -586,7 +643,10 @@ class ReaderActivity : AppCompatActivity() {
                     // Escape single quotes for JS string
                     val safeText = highlight.highlightedText.replace("'", "\\'")
                     val rangeData = highlight.rangeData ?: "0"
-                    binding.webview.evaluateJavascript("restoreHighlight('$safeText', '$rangeData')", null)
+                    binding.webview.evaluateJavascript(
+                        "restoreHighlight('$safeText', '$rangeData')",
+                        null
+                    )
                 }
             }
         }
@@ -596,15 +656,21 @@ class ReaderActivity : AppCompatActivity() {
         @JavascriptInterface
         fun onDefine(word: String) {
             lifecycleScope.launch(Dispatchers.Main) {
-                val dao = org.weproz.etab.data.local.WordDatabase.getDatabase(this@ReaderActivity).wordDao()
+                val dao = org.weproz.etab.data.local.WordDatabase.getDatabase(this@ReaderActivity)
+                    .wordDao()
                 // Try exact match first, then clean up
                 val cleanWord = word.replace(Regex("[^a-zA-Z]"), "")
                 val definition = dao.getDefinition(cleanWord)
-                
+
                 if (definition != null) {
-                    DefinitionDialogFragment.newInstance(definition).show(supportFragmentManager, "definition")
+                    DefinitionDialogFragment.newInstance(definition)
+                        .show(supportFragmentManager, "definition")
                 } else {
-                    Toast.makeText(this@ReaderActivity, "Definition not found for '$cleanWord'", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@ReaderActivity,
+                        "Definition not found for '$cleanWord'",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
@@ -625,11 +691,13 @@ class ReaderActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun onCopy(text: String) {
-            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clipboard =
+                getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             val clip = android.content.ClipData.newPlainText("Copied Text", text)
             clipboard.setPrimaryClip(clip)
             runOnUiThread {
-                Toast.makeText(this@ReaderActivity, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ReaderActivity, "Copied to clipboard", Toast.LENGTH_SHORT)
+                    .show()
             }
         }
     }

@@ -110,8 +110,8 @@
 
     <ImageButton
         android:id="@+id/split_handle"
-        android:layout_width="64dp"
-        android:layout_height="32dp"
+        android:layout_width="48dp"
+        android:layout_height="24dp"
         android:src="@drawable/ic_drag_handle"
         android:background="#EEEEEE"
         android:scaleType="centerInside"

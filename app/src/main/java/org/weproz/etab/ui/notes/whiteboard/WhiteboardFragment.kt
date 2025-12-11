@@ -27,6 +27,7 @@ class WhiteboardFragment : Fragment() {
     private val binding get() = _binding!!
 
     private var dataPath: String? = null
+    private var initialTitle: String? = null
     
     // Multi-page support
     private val pages = mutableListOf<ParsedPage>()
@@ -37,11 +38,15 @@ class WhiteboardFragment : Fragment() {
 
     companion object {
         private const val ARG_DATA_PATH = "arg_data_path"
+        private const val ARG_TITLE = "arg_title"
 
-        fun newInstance(dataPath: String): WhiteboardFragment {
+        fun newInstance(dataPath: String, title: String? = null): WhiteboardFragment {
             val fragment = WhiteboardFragment()
             val args = Bundle()
             args.putString(ARG_DATA_PATH, dataPath)
+            if (title != null) {
+                args.putString(ARG_TITLE, title)
+            }
             fragment.arguments = args
             return fragment
         }
@@ -51,6 +56,7 @@ class WhiteboardFragment : Fragment() {
         super.onCreate(savedInstanceState)
         arguments?.let {
             dataPath = it.getString(ARG_DATA_PATH)
+            initialTitle = it.getString(ARG_TITLE)
         }
         
         // Initialize with at least one empty page
@@ -322,7 +328,7 @@ class WhiteboardFragment : Fragment() {
                     } else {
                         // New entry - use insertOrIgnore which won't fail on duplicate dataPath
                         val count = dao.getWhiteboardCount()
-                        val title = "Untitled ${count + 1}"
+                        val title = initialTitle ?: "Untitled ${count + 1}"
 
                         val newEntity = WhiteboardEntity(
                             title = title,

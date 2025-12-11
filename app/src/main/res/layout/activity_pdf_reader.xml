@@ -86,8 +86,8 @@
     <!-- Split handle -->
     <ImageButton
         android:id="@+id/split_handle"
-        android:layout_width="64dp"
-        android:layout_height="32dp"
+        android:layout_width="48dp"
+        android:layout_height="24dp"
         android:background="#EEEEEE"
         android:contentDescription="Split handle"
         android:elevation="8dp"
@@ -189,17 +189,6 @@
             android:layout_weight="1"
             android:max="0"
             android:progress="0" />
-
-        <!-- Notes toggle button -->
-        <ImageButton
-            android:id="@+id/btn_notes_toggle"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginStart="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Toggle notes"
-            android:src="@drawable/ic_notes"
-            app:tint="@android:color/black" />
 
     </LinearLayout>
 

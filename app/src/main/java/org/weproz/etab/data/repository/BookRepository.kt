@@ -18,10 +18,8 @@ class BookRepository(private val context: Context, private val bookDao: BookDao)
         withContext(Dispatchers.IO) {
             val fileBooks = findBookFiles()
             
-            // 1. Insert new books if they don't exist (IGNORE strategy handles duplicates)
-            // But we want to preserve metadata if it exists.
+            // 1. Insert new books if they don't exist
             fileBooks.forEach { fileBook ->
-                // Check if exists
                 val existing = bookDao.getBook(fileBook.path)
                 if (existing == null) {
                     bookDao.insert(fileBook)
@@ -29,11 +27,13 @@ class BookRepository(private val context: Context, private val bookDao: BookDao)
             }
             
             // 2. Remove books from DB that are no longer on disk
-            // (Optional: depending on if we want to keep history for deleted files. 
-            // For now, let's keep it simple and clean up.)
-            // Fetch all from DB (one-shot, not flow) - requires a new DAO method or just collecting flow?
-            // For simplicity/perf, we might skip this or implement a getPaths() query.
-            // Let's implement robust sync later if needed. For now, we ensure new files appear.
+            val dbBooks = bookDao.getAllBooksList()
+            dbBooks.forEach { dbBook ->
+                val file = File(dbBook.path)
+                if (!file.exists()) {
+                    bookDao.delete(dbBook.path)
+                }
+            }
         }
     }
 

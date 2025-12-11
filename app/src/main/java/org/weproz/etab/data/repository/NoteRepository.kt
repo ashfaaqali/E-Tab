@@ -39,6 +39,8 @@ class NoteRepository @Inject constructor(private val db: AppDatabase) {
 
     fun getAllWhiteboards() = db.whiteboardDao().getAllWhiteboards()
 
+    suspend fun getAllWhiteboardsList() = db.whiteboardDao().getAllWhiteboardsList()
+
     suspend fun getWhiteboardCount(): Int {
         return db.whiteboardDao().getWhiteboardCount()
     }

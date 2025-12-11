@@ -34,6 +34,10 @@ class SearchActivity : AppCompatActivity() {
         binding.recyclerSuggestions.layoutManager = LinearLayoutManager(this)
         binding.recyclerSuggestions.adapter = adapter
 
+        binding.btnBack.setOnClickListener {
+            finish()
+        }
+
         binding.searchInput.requestInputFocus()
 
         binding.searchInput.addTextChangedListener(object : TextWatcher {
