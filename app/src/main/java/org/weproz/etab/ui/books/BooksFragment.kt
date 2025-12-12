@@ -25,8 +25,8 @@ import org.weproz.etab.data.local.BookType
 import org.weproz.etab.databinding.FragmentBooksBinding
 import org.weproz.etab.ui.reader.PdfReaderActivity
 import org.weproz.etab.ui.reader.ReaderActivity
+import org.weproz.etab.ui.search.DefinitionDialogFragment
 import org.weproz.etab.util.ShareHelper
-import java.io.File
 
 class BooksFragment : Fragment() {
 
@@ -51,6 +51,9 @@ class BooksFragment : Fragment() {
         },
         onBookLongClick = { book ->
             showBookContextMenu(book)
+        },
+        onDictionaryClick = { entry ->
+            DefinitionDialogFragment.newInstance(entry).show(parentFragmentManager, "definition")
         }
     )
 
@@ -125,8 +128,26 @@ class BooksFragment : Fragment() {
         val factory = BooksViewModelFactory(requireActivity().application)
         viewModel = androidx.lifecycle.ViewModelProvider(this, factory)[BooksViewModel::class.java]
 
-        binding.recyclerBooks.layoutManager = GridLayoutManager(requireContext(), 2)
+        val layoutManager = GridLayoutManager(requireContext(), 2)
+        layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+            override fun getSpanSize(position: Int): Int {
+                return when (adapter.getItemViewType(position)) {
+                    0 -> 1 // Book (Grid)
+                    1 -> 2 // Dictionary (List/Full width)
+                    else -> 1
+                }
+            }
+        }
+        binding.recyclerBooks.layoutManager = layoutManager
         binding.recyclerBooks.adapter = adapter
+        
+        binding.searchBar.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                viewModel.setSearchQuery(s.toString())
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
         
         binding.tabLayout.addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab?) {
@@ -137,8 +158,8 @@ class BooksFragment : Fragment() {
         })
 
         lifecycleScope.launch {
-            viewModel.books.collect { books ->
-                adapter.submitList(books)
+            viewModel.items.collect { items ->
+                adapter.submitList(items)
             }
         }
         

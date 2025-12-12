@@ -20,49 +20,75 @@ import kotlinx.coroutines.withContext
 import org.weproz.etab.R
 import org.weproz.etab.data.local.BookEntity
 import org.weproz.etab.data.local.BookType
+import org.weproz.etab.data.local.DictionaryEntry
 import java.io.File
 import java.io.FileInputStream
 
 class BookAdapter(
     private val onBookClick: (BookEntity) -> Unit,
     private val onFavoriteClick: (BookEntity) -> Unit,
-    private val onBookLongClick: (BookEntity) -> Unit
-) : RecyclerView.Adapter<BookAdapter.ViewHolder>() {
+    private val onBookLongClick: (BookEntity) -> Unit,
+    private val onDictionaryClick: (DictionaryEntry) -> Unit
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    private var books: List<BookEntity> = emptyList()
+    private var items: List<SearchItem> = emptyList()
 
-    // In-memory cache for cover bitmaps to prevent reloading
     companion object {
-        private val coverCache: LruCache<String, Bitmap> = LruCache(50) // Cache up to 50 covers
+        private const val TYPE_BOOK = 0
+        private const val TYPE_DICTIONARY = 1
+        private val coverCache: LruCache<String, Bitmap> = LruCache(50)
     }
 
-    fun submitList(newBooks: List<BookEntity>) {
-        val diffCallback = BookDiffCallback(books, newBooks)
+    fun submitList(newItems: List<SearchItem>) {
+        val diffCallback = ItemDiffCallback(items, newItems)
         val diffResult = DiffUtil.calculateDiff(diffCallback)
-        books = newBooks
+        items = newItems
         diffResult.dispatchUpdatesTo(this)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_book, parent, false)
-        return ViewHolder(view)
+    override fun getItemViewType(position: Int): Int {
+        return when (items[position]) {
+            is SearchItem.BookItem -> TYPE_BOOK
+            is SearchItem.DictionaryItem -> TYPE_DICTIONARY
+        }
     }
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(books[position])
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return if (viewType == TYPE_BOOK) {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_book, parent, false)
+            BookViewHolder(view)
+        } else {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_suggestion, parent, false)
+            DictionaryViewHolder(view)
+        }
     }
 
-    override fun getItemCount(): Int = books.size
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val item = items[position]) {
+            is SearchItem.BookItem -> (holder as BookViewHolder).bind(item.book)
+            is SearchItem.DictionaryItem -> (holder as DictionaryViewHolder).bind(item.entry)
+        }
+    }
 
-    private class BookDiffCallback(
-        private val oldList: List<BookEntity>,
-        private val newList: List<BookEntity>
+    override fun getItemCount(): Int = items.size
+
+    private class ItemDiffCallback(
+        private val oldList: List<SearchItem>,
+        private val newList: List<SearchItem>
     ) : DiffUtil.Callback() {
         override fun getOldListSize() = oldList.size
         override fun getNewListSize() = newList.size
 
         override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            return oldList[oldItemPosition].path == newList[newItemPosition].path
+            val oldItem = oldList[oldItemPosition]
+            val newItem = newList[newItemPosition]
+            return when {
+                oldItem is SearchItem.BookItem && newItem is SearchItem.BookItem -> 
+                    oldItem.book.path == newItem.book.path
+                oldItem is SearchItem.DictionaryItem && newItem is SearchItem.DictionaryItem -> 
+                    oldItem.entry.id == newItem.entry.id
+                else -> false
+            }
         }
 
         override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
@@ -70,7 +96,7 @@ class BookAdapter(
         }
     }
 
-    inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    inner class BookViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val titleView: TextView = itemView.findViewById(R.id.text_book_title)
         private val lastOpenedView: TextView = itemView.findViewById(R.id.text_last_opened)
         private val coverView: ImageView = itemView.findViewById(R.id.image_cover)
@@ -93,18 +119,18 @@ class BookAdapter(
             }
             
             if (book.isFavorite) {
-                favButton.setColorFilter(Color.parseColor("#FFD700")) // Gold
+                favButton.setColorFilter(Color.parseColor("#FFD700"))
                 favButton.setImageResource(android.R.drawable.btn_star_big_on)
             } else {
                 favButton.clearColorFilter()
                 favButton.setImageResource(android.R.drawable.btn_star_big_off)
             }
-            
+
             favButton.setOnClickListener { onFavoriteClick(book) }
             itemView.setOnClickListener { onBookClick(book) }
-            itemView.setOnLongClickListener {
+            itemView.setOnLongClickListener { 
                 onBookLongClick(book)
-                true
+                true 
             }
             
             // Set tag for concurrency check
@@ -133,9 +159,13 @@ class BookAdapter(
                     coverView.setBackgroundColor(Color.WHITE)
                     loadEpubCoverAsync(book.path, coverView)
                 }
+                else -> {
+                    // Handle other types or future types
+                    coverView.setImageResource(R.drawable.books)
+                }
             }
         }
-        
+
         private fun loadPdfCoverAsync(path: String, target: ImageView) {
             GlobalScope.launch(Dispatchers.IO) {
                 try {
@@ -229,5 +259,15 @@ class BookAdapter(
             }
         }
     }
+
+    inner class DictionaryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val textView: TextView = itemView.findViewById(R.id.text_word)
+
+        fun bind(item: DictionaryEntry) {
+            textView.text = item.word
+            itemView.setOnClickListener { onDictionaryClick(item) }
+        }
+    }
 }
+
 
