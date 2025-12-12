@@ -27,7 +27,6 @@ sealed class SearchItem {
 class BooksViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: BookRepository
-    private val dictionaryRepository: DictionaryRepository
     
     // 0 = All, 1 = Favorites
     private val _currentTab = MutableStateFlow(0) 
@@ -42,9 +41,6 @@ class BooksViewModel(application: Application) : AndroidViewModel(application) {
     init {
         val database = AppDatabase.getDatabase(application)
         repository = BookRepository(application, database.bookDao())
-        
-        val wordDb = WordDatabase.getDatabase(application)
-        dictionaryRepository = DictionaryRepository(wordDb)
         
         // Initial sync
         refresh()
@@ -73,12 +69,7 @@ class BooksViewModel(application: Application) : AndroidViewModel(application) {
                             it.title.contains(query, ignoreCase = true) 
                         }.map { SearchItem.BookItem(it) }
                         
-                        // Search dictionary
-                        val dictionaryResults = dictionaryRepository.getSuggestions(query)
-                            .map { SearchItem.DictionaryItem(it) }
-                            
-                        // Combine: Dictionary results on top
-                        emit(dictionaryResults + filteredBooks)
+                        emit(filteredBooks)
                     }
                 }
             }.collect {
