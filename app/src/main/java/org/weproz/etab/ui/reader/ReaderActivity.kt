@@ -630,8 +630,116 @@ class ReaderActivity : AppCompatActivity() {
                 }
 
                 function removeHighlight() {
-                    // Case 1: Clicked on a specific highlight or selection is inside one
-                    if (clickedHighlight) {
+                    var selection = window.getSelection();
+                    
+                    // Case 1: Selection-based removal (Partial or Full overlap)
+                    if (selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
+                        var range = selection.getRangeAt(0);
+                        
+                        // Find all highlights intersecting the range
+                        var highlights = document.querySelectorAll('.highlighted');
+                        var highlightsToProcess = [];
+                        
+                        for (var i = 0; i < highlights.length; i++) {
+                            if (range.intersectsNode(highlights[i])) {
+                                highlightsToProcess.push(highlights[i]);
+                            }
+                        }
+                        
+                        highlightsToProcess.forEach(function(el) {
+                            // 1. Remove old from DB
+                            var oldText = el.textContent;
+                            var oldRangeData = el.getAttribute('data-range');
+                            Android.onRemoveHighlight(oldText, oldRangeData);
+                            
+                            // 2. Calculate split points
+                            var fullText = el.textContent;
+                            var elRange = document.createRange();
+                            elRange.selectNodeContents(el);
+                            
+                            var startOffset = 0;
+                            var endOffset = fullText.length;
+                            
+                            // Check start
+                            if (range.compareBoundaryPoints(Range.START_TO_START, elRange) > 0) {
+                                // Selection starts inside this element
+                                // We assume the highlight span contains a single text node
+                                if (el.firstChild && el.firstChild.nodeType === 3) {
+                                     // If selection starts in this text node
+                                     if (range.startContainer === el.firstChild) {
+                                         startOffset = range.startOffset;
+                                     }
+                                }
+                            }
+                            
+                            // Check end
+                            if (range.compareBoundaryPoints(Range.END_TO_END, elRange) < 0) {
+                                // Selection ends inside this element
+                                if (el.firstChild && el.firstChild.nodeType === 3) {
+                                     if (range.endContainer === el.firstChild) {
+                                         endOffset = range.endOffset;
+                                     }
+                                }
+                            }
+                            
+                            // 3. Create new nodes
+                            var fragment = document.createDocumentFragment();
+                            
+                            // Pre-fragment (Keep highlighted)
+                            if (startOffset > 0) {
+                                var span1 = document.createElement('span');
+                                span1.className = 'highlighted';
+                                span1.textContent = fullText.substring(0, startOffset);
+                                span1.setAttribute('data-needs-index', 'true');
+                                fragment.appendChild(span1);
+                            }
+                            
+                            // Middle-fragment (Remove highlight)
+                            var textNode = document.createTextNode(fullText.substring(startOffset, endOffset));
+                            fragment.appendChild(textNode);
+                            
+                            // Post-fragment (Keep highlighted)
+                            if (endOffset < fullText.length) {
+                                var span2 = document.createElement('span');
+                                span2.className = 'highlighted';
+                                span2.textContent = fullText.substring(endOffset);
+                                span2.setAttribute('data-needs-index', 'true');
+                                fragment.appendChild(span2);
+                            }
+                            
+                            el.parentNode.replaceChild(fragment, el);
+                        });
+                        
+                        // 4. Update DB for new fragments
+                        // We need to process them in document order to get correct indices
+                        var newHighlights = document.querySelectorAll('span[data-needs-index="true"]');
+                        newHighlights.forEach(function(span) {
+                            span.removeAttribute('data-needs-index');
+                            var text = span.textContent;
+                            
+                            // Calculate index
+                            var index = 0;
+                            var tempRange = document.createRange();
+                            tempRange.selectNodeContents(document.body);
+                            tempRange.setEndBefore(span);
+                            var precedingText = tempRange.toString();
+                            
+                            var count = 0;
+                            var pos = precedingText.indexOf(text);
+                            while (pos !== -1) {
+                                count++;
+                                pos = precedingText.indexOf(text, pos + 1);
+                            }
+                            index = count;
+                            
+                            span.setAttribute('data-range', index.toString());
+                            Android.onHighlight(text, index.toString());
+                        });
+                        
+                        selection.removeAllRanges();
+                    } 
+                    // Case 2: Click-based removal (No selection range, just a click on highlight)
+                    else if (clickedHighlight) {
                         var text = clickedHighlight.textContent;
                         var rangeData = clickedHighlight.getAttribute('data-range');
                         
@@ -642,36 +750,10 @@ class ReaderActivity : AppCompatActivity() {
                         parent.normalize();
                         
                         clickedHighlight = null;
-                    } 
-                    // Case 2: Selection contains highlights
-                    else if (selectionRange) {
-                        // We need to find all highlights within the selection
-                        // This is tricky because selectionRange might partially overlap
-                        // But for now, let's handle fully contained highlights which is common
-                        
-                        // We can iterate over all .highlighted elements and check if they intersect the range
-                        var highlights = document.getElementsByClassName('highlighted');
-                        // Convert to array to avoid live collection issues during removal
-                        var highlightsArray = Array.from(highlights);
-                        
-                        for (var i = 0; i < highlightsArray.length; i++) {
-                            var el = highlightsArray[i];
-                            if (selectionRange.intersectsNode(el)) {
-                                var text = el.textContent;
-                                var rangeData = el.getAttribute('data-range');
-                                
-                                Android.onRemoveHighlight(text, rangeData);
-                                
-                                var parent = el.parentNode;
-                                parent.replaceChild(document.createTextNode(text), el);
-                                parent.normalize();
-                            }
-                        }
                     }
                     
                     document.getElementById('custom-menu').style.display = 'none';
                     resetMenuButtons();
-                    window.getSelection().removeAllRanges();
                 }
 
                 function highlightText() {
