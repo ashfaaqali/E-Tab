@@ -105,39 +105,6 @@ class ReaderActivity : AppCompatActivity() {
         binding.btnNotesToggle.setOnClickListener {
             toggleSplitView()
         }
-
-        val gestureDetector = android.view.GestureDetector(
-            this,
-            object : android.view.GestureDetector.SimpleOnGestureListener() {
-                override fun onSingleTapUp(e: android.view.MotionEvent): Boolean {
-                    val width = binding.webview.width
-                    val x = e.x
-
-                    // Check if tapping a link?
-                    // For now, strict zones.
-                    if (x < width * 0.25) { // Left 25%
-                        prevChapter()
-                        showNavigation()
-                        return true
-                    } else if (x > width * 0.75) { // Right 25%
-                        nextChapter()
-                        showNavigation()
-                        return true
-                    } else {
-                        // Center tap - just toggle/show controls
-                        showNavigation()
-                    }
-                    return false
-                }
-
-                override fun onDown(e: android.view.MotionEvent): Boolean = false
-            })
-
-        binding.webview.setOnTouchListener { v, event ->
-            gestureDetector.onTouchEvent(event)
-            // Return false to allow WebView to handle other touch events (scrolling, links)
-            false
-        }
     }
 
     private fun showNavigation() {
@@ -576,6 +543,13 @@ class ReaderActivity : AppCompatActivity() {
 
                 document.addEventListener('click', function(e) {
                     var menu = document.getElementById('custom-menu');
+                    
+                    // 1. Check if clicked on menu or inside menu
+                    if (menu.contains(e.target)) {
+                        return; // Let button handlers work
+                    }
+
+                    // 2. Check if clicked on a highlight
                     if (e.target.classList.contains('highlighted')) {
                         clickedHighlight = e.target;
                         selectedText = e.target.textContent;
@@ -610,12 +584,37 @@ class ReaderActivity : AppCompatActivity() {
                         menu.style.left = left + 'px';
                         
                         e.stopPropagation();
-                    } else if (!menu.contains(e.target)) {
-                        // Clicked outside menu
-                        if (document.getElementById('btn-remove').style.display !== 'none') {
-                             menu.style.display = 'none';
-                             resetMenuButtons();
-                        }
+                        return;
+                    } 
+                    
+                    // 3. Clicked elsewhere
+                    
+                    // If menu was visible, hide it and don't navigate
+                    if (menu.style.display === 'block') {
+                         menu.style.display = 'none';
+                         resetMenuButtons();
+                         return;
+                    }
+                    
+                    // 4. Navigation Logic
+                    var width = window.innerWidth;
+                    var x = e.clientX;
+                    
+                    // Only navigate if not selecting text (selection usually implies drag, but click is click)
+                    // If selection is non-empty, we probably shouldn't navigate?
+                    // But selectionchange handles showing the menu.
+                    // If I click to clear selection, selection becomes empty.
+                    
+                    if (window.getSelection().toString().length > 0) {
+                        return;
+                    }
+                    
+                    if (x < width * 0.25) {
+                        Android.onPrevPage();
+                    } else if (x > width * 0.75) {
+                        Android.onNextPage();
+                    } else {
+                        Android.onToggleControls();
                     }
                 });
 
@@ -905,6 +904,29 @@ class ReaderActivity : AppCompatActivity() {
             runOnUiThread {
                 Toast.makeText(this@ReaderActivity, "Copied to clipboard", Toast.LENGTH_SHORT)
                     .show()
+            }
+        }
+
+        @JavascriptInterface
+        fun onPrevPage() {
+            runOnUiThread {
+                prevChapter()
+                showNavigation()
+            }
+        }
+
+        @JavascriptInterface
+        fun onNextPage() {
+            runOnUiThread {
+                nextChapter()
+                showNavigation()
+            }
+        }
+
+        @JavascriptInterface
+        fun onToggleControls() {
+            runOnUiThread {
+                showNavigation()
             }
         }
     }
