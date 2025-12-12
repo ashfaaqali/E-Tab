@@ -35,7 +35,7 @@ class WhiteboardFragment : Fragment() {
 
     // Mutex to prevent concurrent saves causing duplicates
     private val saveMutex = Mutex()
-
+    
     companion object {
         private const val ARG_DATA_PATH = "arg_data_path"
         private const val ARG_TITLE = "arg_title"
@@ -77,6 +77,10 @@ class WhiteboardFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupTools()
         setupPageNavigation()
+        
+        binding.whiteboardView.onActionCompleted = {
+            saveWhiteboard()
+        }
         
         if (dataPath != null) {
             loadWhiteboardData()

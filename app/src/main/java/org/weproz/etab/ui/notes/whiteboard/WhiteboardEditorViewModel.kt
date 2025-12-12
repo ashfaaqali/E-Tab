@@ -17,6 +17,11 @@ class WhiteboardEditorViewModel @Inject constructor(
     private val repository: NoteRepository
 ) : ViewModel() {
 
+    // State for rotation survival
+    var pages: MutableList<ParsedPage> = mutableListOf()
+    var currentPageIndex: Int = 0
+    var isDataLoaded: Boolean = false
+
     fun saveWhiteboard(
         whiteboardId: Long,
         currentTitle: String,

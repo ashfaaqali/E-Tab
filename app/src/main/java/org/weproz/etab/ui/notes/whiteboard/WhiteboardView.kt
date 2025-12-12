@@ -16,6 +16,8 @@ class WhiteboardView @JvmOverloads constructor(
     private var strokeWidth = 10f
     var isEraser = false
     
+    var onActionCompleted: (() -> Unit)? = null
+    
     fun getStrokeWidth(): Float = strokeWidth
     
     fun setStrokeWidthGeneric(width: Float) {
@@ -305,6 +307,7 @@ class WhiteboardView @JvmOverloads constructor(
                 if (isDraggingText) {
                     isDraggingText = false
                     movingTextAction = null
+                    onActionCompleted?.invoke()
                 } else {
                     currentPath.lineTo(canvasX, canvasY)
                     val finalPath = Path(currentPath)
@@ -315,6 +318,7 @@ class WhiteboardView @JvmOverloads constructor(
                     paths.add(DrawAction.Stroke(finalPath, pointsCopy, color, strokeWidth, captureEraser))
                     currentPath.reset()
                     invalidate()
+                    onActionCompleted?.invoke()
                 }
             }
         }
@@ -325,6 +329,7 @@ class WhiteboardView @JvmOverloads constructor(
         if (paths.isNotEmpty()) {
             undonePaths.add(paths.removeAt(paths.lastIndex))
             invalidate()
+            onActionCompleted?.invoke()
         }
     }
 
@@ -332,6 +337,7 @@ class WhiteboardView @JvmOverloads constructor(
         if (undonePaths.isNotEmpty()) {
             paths.add(undonePaths.removeAt(undonePaths.lastIndex))
             invalidate()
+            onActionCompleted?.invoke()
         }
     }
 
@@ -355,6 +361,7 @@ class WhiteboardView @JvmOverloads constructor(
         
         paths.add(DrawAction.Text(text, x, y, drawColor, 60f))
         invalidate()
+        onActionCompleted?.invoke()
     }
     
     // For saving/loading (Simplified for brevity, would need proper serialization)
