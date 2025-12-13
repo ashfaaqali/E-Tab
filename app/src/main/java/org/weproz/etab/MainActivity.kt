@@ -3,7 +3,6 @@ package org.weproz.etab
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -12,11 +11,19 @@ import dagger.hilt.android.AndroidEntryPoint
 import org.weproz.etab.databinding.ActivityMainBinding
 import org.weproz.etab.util.FocusModeManager
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var focusModeManager: FocusModeManager
+    
+    private val isPinned = androidx.lifecycle.MutableLiveData<Boolean>()
+    private var monitorJob: kotlinx.coroutines.Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +55,39 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupFocusMode()
+        
+        isPinned.observe(this) { pinned ->
+            if (::focusModeManager.isInitialized && focusModeManager.isFocusModeActive && !pinned) {
+                focusModeManager.disableFocusMode(this)
+            }
+        }
+    }
+
+    private fun startMonitoringPinnedState() {
+        monitorJob?.cancel()
+        monitorJob = lifecycleScope.launch {
+            // Wait for pinning to take effect
+            val startTime = System.currentTimeMillis()
+            while (isActive && ::focusModeManager.isInitialized && focusModeManager.isFocusModeActive) {
+                if (focusModeManager.isAppPinned(this@MainActivity)) {
+                    break
+                }
+                if (System.currentTimeMillis() - startTime > 5000) {
+                    focusModeManager.disableFocusMode(this@MainActivity)
+                    return@launch
+                }
+                delay(100)
+            }
+
+            while (isActive && ::focusModeManager.isInitialized && focusModeManager.isFocusModeActive) {
+                isPinned.postValue(focusModeManager.isAppPinned(this@MainActivity))
+                delay(500)
+            }
+        }
+    }
+
+    private fun stopMonitoringPinnedState() {
+        monitorJob?.cancel()
     }
 
     private fun setupFocusMode() {
@@ -58,6 +98,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 updateFocusModeUI(true)
                 Toast.makeText(this, "Focus Mode enabled", Toast.LENGTH_SHORT).show()
+                startMonitoringPinnedState()
             }
         }
 
@@ -65,6 +106,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 updateFocusModeUI(false)
                 Toast.makeText(this, "Focus Mode disabled", Toast.LENGTH_SHORT).show()
+                stopMonitoringPinnedState()
             }
         }
 
@@ -80,6 +122,9 @@ class MainActivity : AppCompatActivity() {
 
         // Update initial UI state
         updateFocusModeUI(focusModeManager.isFocusModeActive)
+        if (focusModeManager.isFocusModeActive) {
+            startMonitoringPinnedState()
+        }
 
         // Set up button click listener
         binding.btnFocusMode.setOnClickListener {
@@ -107,37 +152,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showEnableFocusModeDialog() {
-        AlertDialog.Builder(this)
+        org.weproz.etab.ui.custom.CustomDialog(this)
             .setTitle("Enable Focus Mode")
             .setMessage("Focus Mode will:\n\n• Pin the app to prevent switching\n• Optionally disable WiFi\n\nThis helps you stay focused while studying.\n\nTo exit, hold Back and Recent buttons together.")
-            .setPositiveButton("Enable") { _, _ ->
+            .setPositiveButton("Enable") { dialog ->
                 if (focusModeManager.checkAndPrepareFocusMode(this)) {
                     focusModeManager.enableFocusMode(this)
                 }
+                dialog.dismiss()
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Cancel")
             .show()
     }
 
     private fun showDisableFocusModeDialog() {
-        AlertDialog.Builder(this)
+        org.weproz.etab.ui.custom.CustomDialog(this)
             .setTitle("Disable Focus Mode")
             .setMessage("Are you sure you want to exit Focus Mode?")
-            .setPositiveButton("Disable") { _, _ ->
+            .setPositiveButton("Disable") { dialog ->
                 focusModeManager.disableFocusMode(this)
+                dialog.dismiss()
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Cancel")
             .show()
     }
 
     private fun showPermissionDialog() {
-        AlertDialog.Builder(this)
+        org.weproz.etab.ui.custom.CustomDialog(this)
             .setTitle("Permission Required")
             .setMessage("Focus Mode requires 'Display over other apps' permission to work properly.\n\nWould you like to grant this permission?")
-            .setPositiveButton("Open Settings") { _, _ ->
+            .setPositiveButton("Open Settings") { dialog ->
                 focusModeManager.requestOverlayPermission(this)
+                dialog.dismiss()
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Cancel")
             .show()
     }
 
@@ -151,11 +199,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Sync UI with actual state
-        updateFocusModeUI(focusModeManager.isFocusModeActive || focusModeManager.isAppPinned(this))
+        if (::focusModeManager.isInitialized) {
+            updateFocusModeUI(focusModeManager.isFocusModeActive)
+        }
     }
 
     override fun onDestroy() {
+        stopMonitoringPinnedState()
         super.onDestroy()
         // Ensure WiFi is re-enabled if app is destroyed while in focus mode
         if (focusModeManager.isFocusModeActive) {

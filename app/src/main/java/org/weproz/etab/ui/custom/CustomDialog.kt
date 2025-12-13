@@ -32,6 +32,10 @@ class CustomDialog(context: Context) {
         positiveButton = view.findViewById(R.id.btn_positive)
         negativeButton = view.findViewById(R.id.btn_negative)
 
+        // Hide buttons by default
+        positiveButton.visibility = View.GONE
+        negativeButton.visibility = View.GONE
+
         negativeButton.setOnClickListener { dialog.dismiss() }
     }
 
