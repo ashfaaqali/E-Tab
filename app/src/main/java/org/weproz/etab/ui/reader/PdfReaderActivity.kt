@@ -207,21 +207,33 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
 
             // 4. Highlight Logic
             function highlightRange(range, color, dataStr) {
-                var nodeIterator = document.createNodeIterator(
-                    range.commonAncestorContainer,
-                    NodeFilter.SHOW_TEXT,
-                    {
-                        acceptNode: function(node) {
-                            if (!range.intersectsNode(node)) return NodeFilter.FILTER_REJECT;
-                            return NodeFilter.FILTER_ACCEPT;
-                        }
-                    }
-                );
-
                 var nodes = [];
-                var node;
-                while ((node = nodeIterator.nextNode())) {
-                    nodes.push(node);
+                
+                // Optimization for single text node selection (common for single word/line)
+                if (range.startContainer === range.endContainer && range.startContainer.nodeType === 3) {
+                    nodes.push(range.startContainer);
+                } else {
+                    var root = range.commonAncestorContainer;
+                    // Ensure root is an element, not a text node
+                    while (root.nodeType === 3) {
+                        root = root.parentNode;
+                    }
+                    
+                    var nodeIterator = document.createNodeIterator(
+                        root,
+                        NodeFilter.SHOW_TEXT,
+                        {
+                            acceptNode: function(node) {
+                                if (!range.intersectsNode(node)) return NodeFilter.FILTER_REJECT;
+                                return NodeFilter.FILTER_ACCEPT;
+                            }
+                        }
+                    );
+
+                    var node;
+                    while ((node = nodeIterator.nextNode())) {
+                        nodes.push(node);
+                    }
                 }
 
                 nodes.forEach(function(node) {
@@ -476,6 +488,11 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
             window.highlightText = function() {
                 if (selectionRange) {
                     var pageDiv = selectionRange.commonAncestorContainer;
+                    // Fix: Handle Text Node start
+                    if (pageDiv.nodeType === 3) {
+                        pageDiv = pageDiv.parentNode;
+                    }
+                    
                     while(pageDiv && !pageDiv.classList.contains('page')) {
                         pageDiv = pageDiv.parentElement;
                     }
