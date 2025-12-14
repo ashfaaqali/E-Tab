@@ -43,9 +43,9 @@
 
     </LinearLayout>
 
-    <!-- PDF Viewer -->
-    <org.weproz.etab.ui.reader.PdfViewerView
-        android:id="@+id/pdf_viewer"
+    <!-- PDF Viewer (WebView for PDF.js) -->
+    <org.weproz.etab.ui.reader.CustomWebView
+        android:id="@+id/webview"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
