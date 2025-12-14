@@ -15,6 +15,16 @@ import org.weproz.etab.data.local.AppDatabase
 import org.weproz.etab.databinding.ActivityPdfReaderBinding
 import java.io.File
 
+import android.graphics.RectF
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import android.widget.PopupWindow
+import android.widget.TextView
+import org.weproz.etab.data.local.HighlightEntity
+import org.weproz.etab.ui.search.DefinitionDialogFragment
+import java.util.UUID
+
 /**
  * Activity for viewing PDF files with a Google Drive-like experience.
  * Features:
@@ -23,12 +33,14 @@ import java.io.File
  * - Zoom controls
  * - Page indicator
  * - Split view with whiteboard for notes
+ * - Text selection and highlighting (via ML Kit)
  */
-class PdfReaderActivity : AppCompatActivity() {
+class PdfReaderActivity : AppCompatActivity(), PdfViewerView.OnHighlightActionListener {
 
     private lateinit var binding: ActivityPdfReaderBinding
     private var pdfPath: String? = null
     private var isSplitView = false
+    private var popupWindow: PopupWindow? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +59,7 @@ class PdfReaderActivity : AppCompatActivity() {
         if (pdfPath != null) {
             loadPdf(pdfPath!!)
             updateLastOpened(pdfPath!!)
+            loadHighlights(pdfPath!!)
         } else {
             Toast.makeText(this, "Error loading PDF", Toast.LENGTH_SHORT).show()
             finish()
@@ -55,6 +68,18 @@ class PdfReaderActivity : AppCompatActivity() {
 
         setupControls()
         setupPageListener()
+        
+        binding.pdfViewer.onHighlightActionListener = this
+    }
+
+    private fun loadHighlights(path: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val dao = AppDatabase.getDatabase(this@PdfReaderActivity).highlightDao()
+            val highlights = dao.getHighlightsForBook(path)
+            withContext(Dispatchers.Main) {
+                binding.pdfViewer.setHighlights(highlights)
+            }
+        }
     }
 
     private fun loadPdf(path: String) {
@@ -288,5 +313,121 @@ class PdfReaderActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         hideControlsHandler.removeCallbacks(hideControlsRunnable)
+    }
+
+    override fun onWordSelected(text: String, selectionRects: List<RectF>, screenRect: RectF, pageIndex: Int) {
+        showSelectionMenu(text, selectionRects, screenRect, pageIndex, null)
+    }
+
+    override fun onHighlightClicked(highlight: HighlightEntity, rect: RectF) {
+        showSelectionMenu(highlight.highlightedText, emptyList(), rect, highlight.chapterIndex, highlight)
+    }
+
+    private fun showSelectionMenu(text: String, selectionRects: List<RectF>, rect: RectF, pageIndex: Int, highlight: HighlightEntity?) {
+        popupWindow?.dismiss()
+
+        val view = LayoutInflater.from(this).inflate(R.layout.popup_selection_menu, null)
+        popupWindow = PopupWindow(
+            view,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+
+        val btnDefine = view.findViewById<TextView>(R.id.btn_define)
+        val btnHighlight = view.findViewById<TextView>(R.id.btn_highlight)
+        val btnCopy = view.findViewById<TextView>(R.id.btn_copy)
+        val btnRemove = view.findViewById<TextView>(R.id.btn_remove)
+        val sep3 = view.findViewById<View>(R.id.sep_3)
+
+        if (highlight != null) {
+            btnHighlight.visibility = View.GONE
+            view.findViewById<View>(R.id.sep_2).visibility = View.GONE
+            btnRemove.visibility = View.VISIBLE
+            sep3.visibility = View.VISIBLE
+        } else {
+            btnHighlight.visibility = View.VISIBLE
+            view.findViewById<View>(R.id.sep_2).visibility = View.VISIBLE
+            btnRemove.visibility = View.GONE
+            sep3.visibility = View.GONE
+        }
+
+        btnDefine.setOnClickListener {
+            popupWindow?.dismiss()
+            lifecycleScope.launch(Dispatchers.IO) {
+                val cleanWord = text.replace(Regex("[^a-zA-Z]"), "")
+                val dao = org.weproz.etab.data.local.WordDatabase.getDatabase(this@PdfReaderActivity).wordDao()
+                val definition = dao.getDefinition(cleanWord)
+                
+                withContext(Dispatchers.Main) {
+                    if (definition != null) {
+                        DefinitionDialogFragment.newInstance(definition)
+                            .show(supportFragmentManager, "definition")
+                    } else {
+                        Toast.makeText(this@PdfReaderActivity, "Definition not found for '$cleanWord'", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
+        btnHighlight.setOnClickListener {
+            popupWindow?.dismiss()
+            saveHighlight(text, selectionRects, pageIndex)
+            binding.pdfViewer.clearSelection()
+        }
+
+        btnCopy.setOnClickListener {
+            popupWindow?.dismiss()
+            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("Copied Text", text)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+            binding.pdfViewer.clearSelection()
+        }
+
+        btnRemove.setOnClickListener {
+            popupWindow?.dismiss()
+            if (highlight != null) {
+                removeHighlight(highlight)
+            }
+        }
+
+        // Calculate position
+        val location = IntArray(2)
+        binding.pdfViewer.getLocationOnScreen(location)
+        
+        val x = location[0] + rect.centerX().toInt()
+        val y = location[1] + rect.top.toInt() - 150 // Show above
+
+        popupWindow?.showAtLocation(binding.root, Gravity.NO_GRAVITY, x, y)
+    }
+
+    private fun saveHighlight(text: String, rects: List<RectF>, pageIndex: Int) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            // Serialize rects to string: "l,t,r,b;l,t,r,b;..."
+            val rangeData = rects.joinToString(";") { "${it.left},${it.top},${it.right},${it.bottom}" }
+            
+            val highlight = HighlightEntity(
+                bookPath = pdfPath!!,
+                chapterIndex = pageIndex,
+                rangeData = rangeData,
+                highlightedText = text,
+                color = 0xFFFFFF00.toInt(), // Yellow
+                createdAt = System.currentTimeMillis()
+            )
+            
+            val dao = AppDatabase.getDatabase(this@PdfReaderActivity).highlightDao()
+            dao.insert(highlight)
+            
+            loadHighlights(pdfPath!!)
+        }
+    }
+
+    private fun removeHighlight(highlight: HighlightEntity) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val dao = AppDatabase.getDatabase(this@PdfReaderActivity).highlightDao()
+            dao.delete(highlight)
+            loadHighlights(pdfPath!!)
+        }
     }
 }
