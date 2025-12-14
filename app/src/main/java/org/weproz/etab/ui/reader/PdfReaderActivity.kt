@@ -348,7 +348,32 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                 return null;
             }
 
-            // 5. Interaction Logic
+            // 5. Helper to notify Android of page changes
+            function setupPageListeners() {
+                if (!window.PDFViewerApplication || !window.PDFViewerApplication.eventBus) {
+                    setTimeout(setupPageListeners, 200);
+                    return;
+                }
+                
+                function updatePage(page, total) {
+                    Android.onPageChanged(page, total);
+                }
+
+                window.PDFViewerApplication.eventBus.on('pagesinit', function() {
+                    updatePage(window.PDFViewerApplication.page, window.PDFViewerApplication.pagesCount);
+                });
+                
+                window.PDFViewerApplication.eventBus.on('pagechanging', function(evt) {
+                    updatePage(evt.pageNumber, window.PDFViewerApplication.pagesCount);
+                });
+                
+                if (window.PDFViewerApplication.pagesCount > 0) {
+                    updatePage(window.PDFViewerApplication.page, window.PDFViewerApplication.pagesCount);
+                }
+            }
+            setupPageListeners();
+
+            // 6. Interaction Logic
             var selectedText = "";
             var selectionRange = null;
             var clickedHighlight = null;
@@ -766,8 +791,10 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
     override fun onPageChanged(pageNumber: Int, totalPages: Int) {
         runOnUiThread {
             binding.textPageIndicator.text = "Page $pageNumber of $totalPages"
-            binding.pageSlider.max = totalPages - 1
-            binding.pageSlider.progress = pageNumber - 1
+            if (totalPages > 0) {
+                binding.pageSlider.max = totalPages - 1
+                binding.pageSlider.progress = pageNumber - 1
+            }
         }
     }
 
