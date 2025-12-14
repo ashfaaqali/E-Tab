@@ -488,10 +488,13 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
             window.highlightText = function() {
                 if (selectionRange) {
                     var pageDiv = selectionRange.commonAncestorContainer;
-                    // Fix: Handle Text Node start
                     if (pageDiv.nodeType === 3) {
                         pageDiv = pageDiv.parentNode;
                     }
+                    
+                    // Find page element
+                    var pageEl = pageDiv.closest('.page');
+                    var pageNumber = pageEl ? parseInt(pageEl.getAttribute('data-page-number')) : window.PDFViewerApplication.page;
                     
                     while(pageDiv && !pageDiv.classList.contains('page')) {
                         pageDiv = pageDiv.parentElement;
@@ -505,7 +508,7 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                     }
 
                     highlightRange(selectionRange, 'rgba(255, 235, 59, 0.5)', rangeDataStr);
-                    Android.onHighlight(selectedText, window.PDFViewerApplication.page, rangeDataStr);
+                    Android.onHighlight(selectedText, pageNumber, rangeDataStr);
                     
                     window.getSelection().removeAllRanges();
                     document.getElementById('custom-menu').style.display = 'none';
@@ -514,50 +517,65 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
 
             window.removeHighlight = function() {
                 var selection = window.getSelection();
-                if (selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
-                    var range = selection.getRangeAt(0);
-                    var highlights = document.querySelectorAll('.highlight-span');
+                
+                // Helper to process a specific rangeData group
+                function processHighlightGroup(rangeData, pageNumber, removalRange) {
+                    // 1. Delete the logical highlight from DB
+                    Android.onRemoveHighlight("", pageNumber, rangeData);
                     
-                    highlights.forEach(function(el) {
-                        if (range.intersectsNode(el)) {
-                            var text = el.textContent;
-                            var oldRangeData = el.dataset.range;
-                            
-                            Android.onRemoveHighlight(text, window.PDFViewerApplication.page, oldRangeData);
-                            
+                    // 2. Find all spans belonging to this logical highlight
+                    var groupSpans = Array.from(document.querySelectorAll('.highlight-span')).filter(function(s) {
+                        return s.dataset.range === rangeData;
+                    });
+                    
+                    // 3. Process each span
+                    groupSpans.forEach(function(el) {
+                        var text = el.textContent;
+                        var parent = el.parentNode;
+                        
+                        // Find textLayer for recalculating ranges
+                        var pageDiv = parent; 
+                        while(pageDiv && !pageDiv.classList.contains('page')) pageDiv = pageDiv.parentElement;
+                        var textLayer = pageDiv ? pageDiv.querySelector('.textLayer') : null;
+                        
+                        // Check intersection with removal range (if partial)
+                        var intersects = false;
+                        if (removalRange) {
+                            intersects = removalRange.intersectsNode(el);
+                        } else {
+                            intersects = true; // Full removal
+                        }
+                        
+                        if (intersects && removalRange) {
+                            // PARTIAL REMOVAL LOGIC
                             var elRange = document.createRange();
                             elRange.selectNodeContents(el);
                             
                             var startOffset = 0;
                             var endOffset = text.length;
                             
-                            if (range.compareBoundaryPoints(Range.START_TO_START, elRange) > 0) {
-                                startOffset = range.startOffset;
+                            if (removalRange.compareBoundaryPoints(Range.START_TO_START, elRange) > 0) {
+                                startOffset = removalRange.startOffset;
                             }
-                            if (range.compareBoundaryPoints(Range.END_TO_END, elRange) < 0) {
-                                endOffset = range.endOffset;
+                            if (removalRange.compareBoundaryPoints(Range.END_TO_END, elRange) < 0) {
+                                endOffset = removalRange.endOffset;
                             }
                             
-                            var parent = el.parentNode;
                             var fragment = document.createDocumentFragment();
                             
-                            var pageDiv = parent; 
-                            while(pageDiv && !pageDiv.classList.contains('page')) pageDiv = pageDiv.parentElement;
-                            var textLayer = pageDiv ? pageDiv.querySelector('.textLayer') : null;
-
+                            // Keep Start
                             if (startOffset > 0) {
                                 var span1 = document.createElement('span');
                                 span1.className = 'highlight-span';
                                 span1.textContent = text.substring(0, startOffset);
+                                span1.dataset.needsIndex = 'true';
                                 fragment.appendChild(span1);
-                                
-                                if (textLayer) {
-                                    span1.dataset.needsIndex = 'true';
-                                }
                             }
                             
+                            // Unhighlight Middle
                             fragment.appendChild(document.createTextNode(text.substring(startOffset, endOffset)));
                             
+                            // Keep End
                             if (endOffset < text.length) {
                                 var span2 = document.createElement('span');
                                 span2.className = 'highlight-span';
@@ -568,30 +586,70 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                             
                             parent.replaceChild(fragment, el);
                             
+                            // Process any new spans created during partial removal
                             if (textLayer) {
                                 var newSpans = parent.querySelectorAll('span[data-needs-index="true"]');
                                 newSpans.forEach(function(span) {
                                     span.removeAttribute('data-needs-index');
+                                    if (span.firstChild && span.firstChild.nodeType === 3) {
+                                        var r = document.createRange();
+                                        r.selectNodeContents(span.firstChild);
+                                        var offsets = getRangeOffsets(r, textLayer);
+                                        var rData = JSON.stringify(offsets);
+                                        span.dataset.range = rData;
+                                        Android.onHighlight(span.textContent, pageNumber, rData);
+                                    }
+                                });
+                            }
+                            
+                        } else if (intersects && !removalRange) {
+                            // FULL REMOVAL LOGIC
+                            parent.replaceChild(document.createTextNode(text), el);
+                            parent.normalize();
+                        } else {
+                            // NO INTERSECTION - PRESERVE AS NEW HIGHLIGHT
+                            // This span was part of the old group but wasn't touched by the removal selection.
+                            // Since we deleted the old group, we must save this span as a new independent highlight.
+                            if (textLayer) {
+                                // We can't just set needsIndex because it's already in the DOM.
+                                // We need to calculate right now.
+                                if (el.firstChild && el.firstChild.nodeType === 3) {
                                     var r = document.createRange();
-                                    r.selectNodeContents(span);
+                                    r.selectNodeContents(el.firstChild);
                                     var offsets = getRangeOffsets(r, textLayer);
                                     var rData = JSON.stringify(offsets);
-                                    span.dataset.range = rData;
-                                    Android.onHighlight(span.textContent, window.PDFViewerApplication.page, rData);
-                                });
+                                    el.dataset.range = rData;
+                                    Android.onHighlight(text, pageNumber, rData);
+                                }
+                            }
+                        }
+                    });
+                }
+
+                if (selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
+                    var range = selection.getRangeAt(0);
+                    var highlights = document.querySelectorAll('.highlight-span');
+                    var processedRanges = new Set();
+                    
+                    highlights.forEach(function(el) {
+                        if (range.intersectsNode(el)) {
+                            var rangeData = el.dataset.range;
+                            if (!processedRanges.has(rangeData)) {
+                                processedRanges.add(rangeData);
+                                var pageEl = el.closest('.page');
+                                var pageNumber = pageEl ? parseInt(pageEl.getAttribute('data-page-number')) : window.PDFViewerApplication.page;
+                                processHighlightGroup(rangeData, pageNumber, range);
                             }
                         }
                     });
                     
                     selection.removeAllRanges();
                 } else if (clickedHighlight) {
-                    var text = clickedHighlight.textContent;
                     var rangeData = clickedHighlight.dataset.range;
-                    Android.onRemoveHighlight(text, window.PDFViewerApplication.page, rangeData);
+                    var pageEl = clickedHighlight.closest('.page');
+                    var pageNumber = pageEl ? parseInt(pageEl.getAttribute('data-page-number')) : window.PDFViewerApplication.page;
                     
-                    var parent = clickedHighlight.parentNode;
-                    parent.replaceChild(document.createTextNode(text), clickedHighlight);
-                    parent.normalize();
+                    processHighlightGroup(rangeData, pageNumber, null);
                     clickedHighlight = null;
                 }
                 
@@ -691,8 +749,7 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
             AppDatabase.getDatabase(this@PdfReaderActivity).highlightDao().deleteHighlight(
                 bookPath = pdfPath!!,
                 chapterIndex = page,
-                rangeData = rangeData,
-                text = text
+                rangeData = rangeData
             )
         }
     }

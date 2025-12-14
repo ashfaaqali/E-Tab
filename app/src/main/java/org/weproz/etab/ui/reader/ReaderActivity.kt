@@ -889,8 +889,7 @@ class ReaderActivity : AppCompatActivity() {
                 AppDatabase.getDatabase(this@ReaderActivity).highlightDao().deleteHighlight(
                     bookPath = bookPath!!,
                     chapterIndex = currentChapterIndex,
-                    rangeData = rangeData,
-                    text = text
+                    rangeData = rangeData
                 )
             }
         }

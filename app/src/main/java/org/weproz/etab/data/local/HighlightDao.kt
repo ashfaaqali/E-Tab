@@ -17,8 +17,8 @@ interface HighlightDao {
     @Query("SELECT * FROM highlights WHERE bookPath = :bookPath AND chapterIndex = :chapterIndex")
     suspend fun getHighlightsForChapter(bookPath: String, chapterIndex: Int): List<HighlightEntity>
 
-    @Query("DELETE FROM highlights WHERE bookPath = :bookPath AND chapterIndex = :chapterIndex AND rangeData = :rangeData AND highlightedText = :text")
-    suspend fun deleteHighlight(bookPath: String, chapterIndex: Int, rangeData: String, text: String)
+    @Query("DELETE FROM highlights WHERE bookPath = :bookPath AND chapterIndex = :chapterIndex AND rangeData = :rangeData")
+    suspend fun deleteHighlight(bookPath: String, chapterIndex: Int, rangeData: String)
 
     @Delete
     suspend fun delete(highlight: HighlightEntity)
