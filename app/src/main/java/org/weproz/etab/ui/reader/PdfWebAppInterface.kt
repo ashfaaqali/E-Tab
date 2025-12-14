@@ -9,6 +9,8 @@ interface PdfReaderBridge {
     fun onCopy(text: String)
     fun onPageChanged(pageNumber: Int, totalPages: Int)
     fun onToggleControls()
+    fun onPrevPage()
+    fun onNextPage()
 }
 
 class PdfWebAppInterface(private val bridge: PdfReaderBridge) {
@@ -41,5 +43,15 @@ class PdfWebAppInterface(private val bridge: PdfReaderBridge) {
     @JavascriptInterface
     fun onToggleControls() {
         bridge.onToggleControls()
+    }
+
+    @JavascriptInterface
+    fun onPrevPage() {
+        bridge.onPrevPage()
+    }
+
+    @JavascriptInterface
+    fun onNextPage() {
+        bridge.onNextPage()
     }
 }

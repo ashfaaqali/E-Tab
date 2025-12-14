@@ -150,18 +150,62 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
 
     private fun injectCustomScripts() {
         val js = """
-            // 1. Hide Default Toolbar
+            // 1. Hide Default Toolbar & Custom CSS
             var style = document.createElement('style');
-            style.innerHTML = '.toolbar { display: none !important; } #viewerContainer { top: 0 !important; } .highlight-span { background-color: rgba(255, 235, 59, 0.5); }';
+            style.innerHTML = `
+                .toolbar { display: none !important; } 
+                #viewerContainer { top: 0 !important; } 
+                .highlight-span { background-color: rgba(255, 235, 59, 0.5); cursor: pointer; }
+                #custom-menu {
+                    position: absolute;
+                    background: #333;
+                    color: white;
+                    padding: 8px;
+                    border-radius: 4px;
+                    display: none;
+                    z-index: 10000;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                }
+                #custom-menu button {
+                    background: transparent;
+                    border: none;
+                    color: white;
+                    padding: 4px 8px;
+                    font-size: 14px;
+                }
+                .separator {
+                    width: 1px; 
+                    height: 16px; 
+                    background: #555; 
+                    display: inline-block; 
+                    vertical-align: middle; 
+                    margin: 0 4px;
+                }
+            `;
             document.head.appendChild(style);
 
-            // 2. Global Highlights Store
+            // 2. Menu HTML
+            if (!document.getElementById('custom-menu')) {
+                var menuHtml = `
+                    <div id="custom-menu">
+                        <button id="btn-define" onclick="defineWord()">Define</button>
+                        <div class="separator"></div>
+                        <button id="btn-highlight" onclick="highlightText()">Highlight</button>
+                        <div class="separator"></div>
+                        <button id="btn-copy" onclick="copyText()">Copy</button>
+                        <button id="btn-remove" onclick="removeHighlight()" style="display:none">Remove Highlight</button>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', menuHtml);
+            }
+
+            // 3. Global Highlights Store
             window.savedHighlights = [];
             window.restoreHighlights = function(data) {
                 window.savedHighlights = data;
             };
 
-            // 3. Robust Highlight Function (Handles multi-node/multi-line)
+            // 4. Highlight Logic
             function highlightRange(range, color, dataStr) {
                 var nodeIterator = document.createNodeIterator(
                     range.commonAncestorContainer,
@@ -212,7 +256,6 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                 });
             }
 
-            // 4. Restore Highlights on Page Render
             window.PDFViewerApplication.eventBus.on('textlayerrendered', function(evt) {
                 var pageNumber = evt.pageNumber;
                 var pageDiv = evt.source.div;
@@ -234,8 +277,6 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                     } catch(e) { console.error('Restore error', e); }
                 });
             });
-
-            // --- Helper Functions for Robust Persistence (Character Offsets) ---
 
             function getRangeOffsets(range, root) {
                 var start = 0;
@@ -277,13 +318,11 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                 while ((node = walker.nextNode())) {
                     var len = node.textContent.length;
                     
-                    // Find Start
                     if (!startNode && start >= currentOffset && start < currentOffset + len) {
                         range.setStart(node, start - currentOffset);
                         startNode = node;
                     }
                     
-                    // Find End
                     if (!endNode && end >= currentOffset && end <= currentOffset + len) {
                         range.setEnd(node, end - currentOffset);
                         endNode = node;
@@ -297,171 +336,251 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                 return null;
             }
 
-            // 5. Helper to notify Android of page changes
-            window.PDFViewerApplication.eventBus.on('pagechanging', function(evt) {
-                Android.onPageChanged(evt.pageNumber, window.PDFViewerApplication.pagesCount);
-            });
+            // 5. Interaction Logic
+            var selectedText = "";
+            var selectionRange = null;
+            var clickedHighlight = null;
 
-            // 6. Custom Context Menu Logic
-            var menu = document.createElement('div');
-            menu.id = 'custom-context-menu';
-            menu.style.position = 'fixed';
-            menu.style.zIndex = '10000';
-            menu.style.background = 'white';
-            menu.style.border = '1px solid #ccc';
-            menu.style.borderRadius = '8px';
-            menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-            menu.style.display = 'none';
-            menu.style.padding = '8px';
-            menu.style.display = 'flex';
-            menu.style.gap = '8px';
-            
-            var isActionProcessing = false;
-
-            function createMenuButton(text, onClick) {
-                var btn = document.createElement('button');
-                btn.innerText = text;
-                btn.style.background = 'transparent';
-                btn.style.border = 'none';
-                btn.style.padding = '8px 12px';
-                btn.style.fontSize = '14px';
-                btn.style.fontWeight = '500';
-                btn.style.color = '#333';
-                btn.style.cursor = 'pointer';
-                btn.onclick = function(e) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    isActionProcessing = true;
-                    onClick();
-                    menu.style.display = 'none';
-                    setTimeout(function() { isActionProcessing = false; }, 500);
-                };
-                return btn;
+            function resetMenuButtons() {
+                document.getElementById('btn-define').style.display = 'inline-block';
+                document.getElementById('btn-highlight').style.display = 'inline-block';
+                document.getElementById('btn-copy').style.display = 'inline-block';
+                var separators = document.getElementsByClassName('separator');
+                for(var i=0; i<separators.length; i++) separators[i].style.display = 'inline-block';
+                document.getElementById('btn-remove').style.display = 'none';
             }
-            
-            var btnDefine = createMenuButton('Define', function() {
-                Android.onDefine(window.getSelection().toString());
-            });
-            
-            var btnHighlight = createMenuButton('Highlight', function() {
-                var selection = window.getSelection();
-                var text = selection.toString();
-                if (text.length > 0) {
-                    try {
-                        var range = selection.getRangeAt(0);
-                        
-                        // Calculate Offsets for Persistence
-                        var pageDiv = range.commonAncestorContainer;
-                        while(pageDiv && !pageDiv.classList.contains('page')) {
-                            pageDiv = pageDiv.parentElement;
-                        }
-                        var textLayer = pageDiv ? pageDiv.querySelector('.textLayer') : null;
-                        
-                        var rangeDataStr = '{}';
-                        if (textLayer) {
-                            var offsets = getRangeOffsets(range, textLayer);
-                            rangeDataStr = JSON.stringify(offsets);
-                        }
-
-                        // Apply Visual Highlight
-                        highlightRange(range, 'rgba(255, 235, 59, 0.5)', rangeDataStr);
-                        
-                        // Save
-                        Android.onHighlight(text, window.PDFViewerApplication.page, rangeDataStr);
-                        selection.removeAllRanges();
-                    } catch(e) { console.error(e); }
-                }
-            });
-
-            var btnRemoveHighlight = createMenuButton('Remove Highlight', function() {
-                 var selection = window.getSelection();
-                 var text = selection.toString();
-                 
-                 // Find the rangeData from the highlighted span
-                 var range = selection.getRangeAt(0);
-                 var parent = range.commonAncestorContainer.parentElement;
-                 var rangeData = '{}';
-                 if (parent && parent.classList.contains('highlight-span') && parent.dataset.range) {
-                     rangeData = parent.dataset.range;
-                 }
-                 
-                 Android.onRemoveHighlight(text, window.PDFViewerApplication.page, rangeData);
-                 selection.removeAllRanges();
-            });
-            
-            var btnCopy = createMenuButton('Copy', function() {
-                Android.onCopy(window.getSelection().toString());
-            });
-            
-            menu.appendChild(btnDefine);
-            menu.appendChild(btnHighlight); 
-            menu.appendChild(btnCopy);
-            
-            document.body.appendChild(menu);
-            
-            // Improved Selection Logic: Show menu only on interaction end
-            var isSelecting = false;
 
             document.addEventListener('selectionchange', function() {
-                if (isActionProcessing) return;
-                // Hide menu while selecting to avoid interference with drag
-                menu.style.display = 'none';
-                isSelecting = true;
-            });
-
-            function handleSelectionEnd(e) {
-                if (isActionProcessing) return;
-                isSelecting = false;
+                var selection = window.getSelection();
+                var menu = document.getElementById('custom-menu');
                 
-                setTimeout(function() {
-                    var selection = window.getSelection();
-                    if (selection.toString().trim().length > 0) {
-                        var range = selection.getRangeAt(0);
-                        var rect = range.getBoundingClientRect();
-                        
-                        // Check if selection is already highlighted
-                        var parent = range.commonAncestorContainer.parentElement;
-                        var isHighlighted = parent && parent.classList.contains('highlight-span');
-                        
-                        menu.innerHTML = '';
-                        menu.appendChild(btnDefine);
-                        if (isHighlighted) {
-                            menu.appendChild(btnRemoveHighlight);
-                        } else {
-                            menu.appendChild(btnHighlight);
-                        }
-                        menu.appendChild(btnCopy);
-                        
-                        var top = rect.bottom + 10;
-                        if (top + 50 > window.innerHeight) {
-                            top = rect.top - 50;
-                        }
-                        
-                        menu.style.top = top + 'px';
-                        menu.style.left = Math.max(10, Math.min(window.innerWidth - 250, rect.left)) + 'px';
-                        menu.style.display = 'flex';
+                if (selection.toString().length > 0) {
+                    selectedText = selection.toString();
+                    selectionRange = selection.getRangeAt(0);
+                    
+                    var isHighlighted = false;
+                    var parent = selectionRange.commonAncestorContainer;
+                    if (parent.nodeType === 3) parent = parent.parentNode;
+                    
+                    if (parent.classList.contains('highlight-span')) {
+                        isHighlighted = true;
+                        clickedHighlight = parent;
                     }
-                }, 100); // Small delay to let selection settle
-            }
+                    
+                    if (!isHighlighted) {
+                         var highlights = document.querySelectorAll('.highlight-span');
+                         for(var i=0; i<highlights.length; i++) {
+                             if (selection.containsNode(highlights[i], true)) {
+                                 isHighlighted = true;
+                                 break;
+                             }
+                         }
+                    }
 
-            document.addEventListener('mouseup', handleSelectionEnd);
-            document.addEventListener('touchend', handleSelectionEnd);
-            
-            document.addEventListener('click', function(e) {
-                if (window.getSelection().toString().length === 0) {
-                    if (!menu.contains(e.target)) {
-                        Android.onToggleControls();
+                    if (isHighlighted) {
+                        document.getElementById('btn-define').style.display = 'inline-block';
+                        document.getElementById('btn-highlight').style.display = 'none';
+                        document.getElementById('btn-copy').style.display = 'inline-block';
+                        document.getElementById('btn-remove').style.display = 'inline-block';
+                    } else {
+                        resetMenuButtons();
                     }
+                    
+                    var rect = selectionRange.getBoundingClientRect();
+                    var scrollTop = window.scrollY || document.documentElement.scrollTop;
+                    var scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+                    
+                    menu.style.display = 'block';
+                    var menuWidth = menu.offsetWidth || 200;
+                    var menuHeight = menu.offsetHeight || 40;
+                    
+                    var top = scrollTop + rect.top - menuHeight - 10;
+                    var left = scrollLeft + rect.left + (rect.width / 2) - (menuWidth / 2);
+                    
+                    if (top < scrollTop) top = scrollTop + rect.bottom + 10;
+                    if (left < 0) left = 10;
+                    if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
+                    
+                    menu.style.top = top + 'px';
+                    menu.style.left = left + 'px';
+                } else {
+                    menu.style.display = 'none';
                 }
             });
-            
+
             document.addEventListener('click', function(e) {
-                if (window.getSelection().toString().length === 0) {
-                    if (!menu.contains(e.target)) {
-                        Android.onToggleControls();
-                    }
+                var menu = document.getElementById('custom-menu');
+                
+                if (menu.contains(e.target)) return;
+
+                if (e.target.classList.contains('highlight-span')) {
+                    clickedHighlight = e.target;
+                    selectedText = e.target.textContent;
+                    
+                    document.getElementById('btn-define').style.display = 'inline-block';
+                    document.getElementById('btn-highlight').style.display = 'none';
+                    document.getElementById('btn-copy').style.display = 'inline-block';
+                    document.getElementById('btn-remove').style.display = 'inline-block';
+                    
+                    menu.style.display = 'block';
+                    
+                    var rect = e.target.getBoundingClientRect();
+                    var scrollTop = window.scrollY || document.documentElement.scrollTop;
+                    var scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+                    
+                    var menuWidth = menu.offsetWidth || 200;
+                    var top = scrollTop + rect.top - menu.offsetHeight - 10;
+                    var left = scrollLeft + rect.left + (rect.width / 2) - (menuWidth / 2);
+                    
+                    if (top < scrollTop) top = scrollTop + rect.bottom + 10;
+                    if (left < 0) left = 10;
+                    if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
+                    
+                    menu.style.top = top + 'px';
+                    menu.style.left = left + 'px';
+                    
+                    e.stopPropagation();
+                    return;
+                }
+
+                if (menu.style.display === 'block') {
+                    menu.style.display = 'none';
+                    resetMenuButtons();
+                    return;
+                }
+
+                if (window.getSelection().toString().length > 0) return;
+                
+                var width = window.innerWidth;
+                var x = e.clientX;
+                
+                if (x < width * 0.25) {
+                    Android.onPrevPage();
+                } else if (x > width * 0.75) {
+                    Android.onNextPage();
+                } else {
+                    Android.onToggleControls();
                 }
             });
+
+            window.defineWord = function() {
+                Android.onDefine(selectedText.trim());
+                document.getElementById('custom-menu').style.display = 'none';
+            };
+
+            window.copyText = function() {
+                Android.onCopy(selectedText);
+                document.getElementById('custom-menu').style.display = 'none';
+            };
+
+            window.highlightText = function() {
+                if (selectionRange) {
+                    var pageDiv = selectionRange.commonAncestorContainer;
+                    while(pageDiv && !pageDiv.classList.contains('page')) {
+                        pageDiv = pageDiv.parentElement;
+                    }
+                    var textLayer = pageDiv ? pageDiv.querySelector('.textLayer') : null;
+                    
+                    var rangeDataStr = '{}';
+                    if (textLayer) {
+                        var offsets = getRangeOffsets(selectionRange, textLayer);
+                        rangeDataStr = JSON.stringify(offsets);
+                    }
+
+                    highlightRange(selectionRange, 'rgba(255, 235, 59, 0.5)', rangeDataStr);
+                    Android.onHighlight(selectedText, window.PDFViewerApplication.page, rangeDataStr);
+                    
+                    window.getSelection().removeAllRanges();
+                    document.getElementById('custom-menu').style.display = 'none';
+                }
+            };
+
+            window.removeHighlight = function() {
+                var selection = window.getSelection();
+                if (selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
+                    var range = selection.getRangeAt(0);
+                    var highlights = document.querySelectorAll('.highlight-span');
+                    
+                    highlights.forEach(function(el) {
+                        if (range.intersectsNode(el)) {
+                            var text = el.textContent;
+                            var oldRangeData = el.dataset.range;
+                            
+                            Android.onRemoveHighlight(text, window.PDFViewerApplication.page, oldRangeData);
+                            
+                            var elRange = document.createRange();
+                            elRange.selectNodeContents(el);
+                            
+                            var startOffset = 0;
+                            var endOffset = text.length;
+                            
+                            if (range.compareBoundaryPoints(Range.START_TO_START, elRange) > 0) {
+                                startOffset = range.startOffset;
+                            }
+                            if (range.compareBoundaryPoints(Range.END_TO_END, elRange) < 0) {
+                                endOffset = range.endOffset;
+                            }
+                            
+                            var parent = el.parentNode;
+                            var fragment = document.createDocumentFragment();
+                            
+                            var pageDiv = parent; 
+                            while(pageDiv && !pageDiv.classList.contains('page')) pageDiv = pageDiv.parentElement;
+                            var textLayer = pageDiv ? pageDiv.querySelector('.textLayer') : null;
+
+                            if (startOffset > 0) {
+                                var span1 = document.createElement('span');
+                                span1.className = 'highlight-span';
+                                span1.textContent = text.substring(0, startOffset);
+                                fragment.appendChild(span1);
+                                
+                                if (textLayer) {
+                                    span1.dataset.needsIndex = 'true';
+                                }
+                            }
+                            
+                            fragment.appendChild(document.createTextNode(text.substring(startOffset, endOffset)));
+                            
+                            if (endOffset < text.length) {
+                                var span2 = document.createElement('span');
+                                span2.className = 'highlight-span';
+                                span2.textContent = text.substring(endOffset);
+                                span2.dataset.needsIndex = 'true';
+                                fragment.appendChild(span2);
+                            }
+                            
+                            parent.replaceChild(fragment, el);
+                            
+                            if (textLayer) {
+                                var newSpans = parent.querySelectorAll('span[data-needs-index="true"]');
+                                newSpans.forEach(function(span) {
+                                    span.removeAttribute('data-needs-index');
+                                    var r = document.createRange();
+                                    r.selectNodeContents(span);
+                                    var offsets = getRangeOffsets(r, textLayer);
+                                    var rData = JSON.stringify(offsets);
+                                    span.dataset.range = rData;
+                                    Android.onHighlight(span.textContent, window.PDFViewerApplication.page, rData);
+                                });
+                            }
+                        }
+                    });
+                    
+                    selection.removeAllRanges();
+                } else if (clickedHighlight) {
+                    var text = clickedHighlight.textContent;
+                    var rangeData = clickedHighlight.dataset.range;
+                    Android.onRemoveHighlight(text, window.PDFViewerApplication.page, rangeData);
+                    
+                    var parent = clickedHighlight.parentNode;
+                    parent.replaceChild(document.createTextNode(text), clickedHighlight);
+                    parent.normalize();
+                    clickedHighlight = null;
+                }
+                
+                document.getElementById('custom-menu').style.display = 'none';
+                resetMenuButtons();
+            };
         """
         binding.webview.evaluateJavascript(js, null)
     }
@@ -585,6 +704,20 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
             } else {
                 showControlsTemporarily()
             }
+        }
+    }
+
+    override fun onPrevPage() {
+        runOnUiThread {
+            binding.webview.evaluateJavascript("window.PDFViewerApplication.page--", null)
+            showControlsTemporarily()
+        }
+    }
+
+    override fun onNextPage() {
+        runOnUiThread {
+            binding.webview.evaluateJavascript("window.PDFViewerApplication.page++", null)
+            showControlsTemporarily()
         }
     }
 
