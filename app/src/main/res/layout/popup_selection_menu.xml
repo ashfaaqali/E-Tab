@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@drawable/bg_popup_menu"
+    android:elevation="8dp"
+    android:padding="4dp">
+
+    <TextView
+        android:id="@+id/btn_define"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Define"
+        android:textColor="@android:color/white"
+        android:padding="8dp"
+        android:background="?attr/selectableItemBackground" />
+
+    <View
+        android:id="@+id/sep_1"
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="#55FFFFFF"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:id="@+id/btn_highlight"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Highlight"
+        android:textColor="@android:color/white"
+        android:padding="8dp"
+        android:background="?attr/selectableItemBackground" />
+
+    <View
+        android:id="@+id/sep_2"
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="#55FFFFFF"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:id="@+id/btn_copy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Copy"
+        android:textColor="@android:color/white"
+        android:padding="8dp"
+        android:background="?attr/selectableItemBackground" />
+
+    <View
+        android:id="@+id/sep_3"
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="#55FFFFFF"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/btn_remove"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Remove"
+        android:textColor="@android:color/white"
+        android:padding="8dp"
+        android:background="?attr/selectableItemBackground"
+        android:visibility="gone" />
+
+</LinearLayout>

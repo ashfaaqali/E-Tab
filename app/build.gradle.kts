@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.epublib) {
         exclude(group = "org.slf4j", module = "slf4j-simple")
         exclude(group = "net.sf.kxml", module = "kxml2")
@@ -67,6 +68,7 @@ dependencies {
     }
     implementation(libs.jsoup)
     implementation(libs.gson)
+    implementation(libs.mlkit.text.recognition)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

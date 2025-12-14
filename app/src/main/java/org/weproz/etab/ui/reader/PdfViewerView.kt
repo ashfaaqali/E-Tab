@@ -17,6 +17,12 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.widget.OverScroller
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.weproz.etab.data.local.HighlightEntity
+import org.weproz.etab.util.PdfTextAnalyzer
 import java.io.File
 import kotlin.math.max
 import kotlin.math.min
@@ -43,6 +49,52 @@ class PdfViewerView @JvmOverloads constructor(
         private const val PAGE_GAP_DP = 16  // Gap between pages in dp
         private const val PAGE_SHADOW_RADIUS_DP = 4f
         private const val MAX_CACHED_PAGES = 5  // Maximum number of pages to keep in memory
+    }
+
+    // Text Analysis
+    private val textAnalyzer = PdfTextAnalyzer()
+    private val highlightPaint = Paint().apply {
+        color = Color.YELLOW
+        alpha = 100
+        style = Paint.Style.FILL
+    }
+    private val selectionPaint = Paint().apply {
+        color = Color.parseColor("#4D2196F3") // Light Blue with alpha
+        style = Paint.Style.FILL
+    }
+    private val handlePaint = Paint().apply {
+        color = Color.parseColor("#2196F3") // Blue
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+    
+    // Selection State
+    private var isSelecting = false
+    private var selectionStartPage = -1
+    private var selectionStartIndex = -1
+    private var selectionEndIndex = -1
+    private var selectionRects = listOf<RectF>()
+    private var draggingHandle: HandleType? = null
+    private val handleRadius = 30f
+    
+    private enum class HandleType { START, END }
+    
+    private data class PageTextData(
+        val elements: List<com.google.mlkit.vision.text.Text.Element>,
+        val width: Int,
+        val height: Int
+    )
+    
+    // Cache for text analysis results
+    private val pageTextCache = mutableMapOf<Int, PageTextData>()
+
+    // Highlights
+    private var highlights = listOf<HighlightEntity>()
+    var onHighlightActionListener: OnHighlightActionListener? = null
+
+    interface OnHighlightActionListener {
+        fun onWordSelected(text: String, selectionRects: List<RectF>, screenRect: RectF, pageIndex: Int)
+        fun onHighlightClicked(highlight: HighlightEntity, rect: RectF)
     }
 
     // PDF Renderer
@@ -106,6 +158,11 @@ class PdfViewerView @JvmOverloads constructor(
     
     // Listener for tap events (used to show/hide controls)
     var onTapListener: (() -> Unit)? = null
+
+    fun setHighlights(newHighlights: List<HighlightEntity>) {
+        highlights = newHighlights
+        invalidate()
+    }
 
     init {
         pageGapPx = (PAGE_GAP_DP * resources.displayMetrics.density).toInt()
@@ -211,17 +268,272 @@ class PdfViewerView @JvmOverloads constructor(
             }
             
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                // Check if tapped on a highlight
+                val (pageIndex, pageX, pageY) = getPageCoordinates(e.x, e.y)
+                
+                // If selecting, clear selection on tap outside
+                if (isSelecting) {
+                    clearSelection()
+                    return true
+                }
+
+                if (pageIndex != -1) {
+                    val clickedHighlight = highlights.find { 
+                        if (it.chapterIndex != pageIndex) return@find false
+                        try {
+                            val coords = it.rangeData.split(",").map { c -> c.toFloat() }
+                            if (coords.size == 4) {
+                                val rect = RectF(coords[0], coords[1], coords[2], coords[3])
+                                // Normalize tap coordinates to 0..1
+                                val normX = pageX / pageWidth
+                                val normY = pageY / pageHeight
+                                rect.contains(normX, normY)
+                            } else false
+                        } catch (ex: Exception) { false }
+                    }
+                    
+                    if (clickedHighlight != null) {
+                        // Calculate screen rect for the highlight
+                        val coords = clickedHighlight.rangeData.split(",").map { it.toFloat() }
+                        val pageTop = pageGapPx + pageIndex * (pageHeight + pageGapPx)
+                        val screenRect = RectF(
+                            (translateX + (pageGapPx + coords[0] * pageWidth) * currentScale),
+                            (translateY + (pageTop + coords[1] * pageHeight) * currentScale),
+                            (translateX + (pageGapPx + coords[2] * pageWidth) * currentScale),
+                            (translateY + (pageTop + coords[3] * pageHeight) * currentScale)
+                        )
+                        onHighlightActionListener?.onHighlightClicked(clickedHighlight, screenRect)
+                        return true
+                    }
+                }
+
                 // Notify listener for showing controls
                 onTapListener?.invoke()
                 return true
             }
+
+            override fun onLongPress(e: MotionEvent) {
+                val (pageIndex, pageX, pageY) = getPageCoordinates(e.x, e.y)
+                if (pageIndex != -1) {
+                    val cached = pageCache[pageIndex]
+                    if (cached != null) {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            try {
+                                val text = withContext(Dispatchers.Default) {
+                                    textAnalyzer.analyzePage(cached.bitmap)
+                                }
+                                
+                                // Cache elements
+                                val elements = textAnalyzer.getElements(text)
+                                val bW = cached.bitmap.width
+                                val bH = cached.bitmap.height
+                                pageTextCache[pageIndex] = PageTextData(elements, bW, bH)
+                                
+                                // Find word at touch
+                                val touchX = (pageX / pageWidth) * bW
+                                val touchY = (pageY / pageHeight) * bH
+                                
+                                var foundIndex = -1
+                                for (i in elements.indices) {
+                                    val box = elements[i].boundingBox
+                                    if (box != null && box.contains(touchX.toInt(), touchY.toInt())) {
+                                        foundIndex = i
+                                        break
+                                    }
+                                }
+                                
+                                if (foundIndex != -1) {
+                                    isSelecting = true
+                                    selectionStartPage = pageIndex
+                                    selectionStartIndex = foundIndex
+                                    selectionEndIndex = foundIndex
+                                    updateSelectionRects()
+                                    invalidate()
+                                    
+                                    // Show menu immediately for single word
+                                    showSelectionMenu()
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error analyzing text", e)
+                            }
+                        }
+                    }
+                }
+            }
         })
     }
 
+    private fun getPageCoordinates(screenX: Float, screenY: Float): Triple<Int, Float, Float> {
+        val contentX = (screenX - translateX) / currentScale
+        val contentY = (screenY - translateY) / currentScale
+        
+        val pageHeightWithGap = pageHeight + pageGapPx
+        val pageIndex = ((contentY - pageGapPx / 2) / pageHeightWithGap).toInt()
+        
+        if (pageIndex in 0 until pageCount) {
+            val pageTop = pageGapPx + pageIndex * pageHeightWithGap
+            val pageY = contentY - pageTop
+            val pageX = contentX - pageGapPx
+            
+            if (pageX >= 0 && pageX <= pageWidth && pageY >= 0 && pageY <= pageHeight) {
+                return Triple(pageIndex, pageX, pageY)
+            }
+        }
+        return Triple(-1, 0f, 0f)
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // Handle selection dragging
+        if (isSelecting && selectionRects.isNotEmpty()) {
+            val (pageIndex, pageX, pageY) = getPageCoordinates(event.x, event.y)
+            
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    // Check if touching handles
+                    val first = selectionRects.first()
+                    val last = selectionRects.last()
+                    
+                    val startX = (translateX + (pageGapPx + first.left * pageWidth) * currentScale)
+                    val startY = (translateY + (pageGapPx + selectionStartPage * (pageHeight + pageGapPx) + first.bottom * pageHeight) * currentScale)
+                    val endX = (translateX + (pageGapPx + last.right * pageWidth) * currentScale)
+                    val endY = (translateY + (pageGapPx + selectionStartPage * (pageHeight + pageGapPx) + last.bottom * pageHeight) * currentScale)
+                    
+                    val touchRadius = handleRadius * 2 // Larger touch area
+                    
+                    if (kotlin.math.hypot(event.x - startX, event.y - startY) < touchRadius) {
+                        draggingHandle = HandleType.START
+                        return true
+                    } else if (kotlin.math.hypot(event.x - endX, event.y - endY) < touchRadius) {
+                        draggingHandle = HandleType.END
+                        return true
+                    }
+                    // Fall through to allow scrolling/tapping
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (draggingHandle != null) {
+                        if (pageIndex == selectionStartPage) {
+                            updateSelection(pageX, pageY, draggingHandle!!)
+                        }
+                        return true
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (draggingHandle != null) {
+                        draggingHandle = null
+                        showSelectionMenu()
+                        return true
+                    }
+                }
+            }
+        }
+
         var handled = scaleGestureDetector.onTouchEvent(event)
         handled = gestureDetector.onTouchEvent(event) || handled
         return handled || super.onTouchEvent(event)
+    }
+
+    private fun updateSelection(pageX: Float, pageY: Float, handle: HandleType) {
+        val data = pageTextCache[selectionStartPage] ?: return
+        val elements = data.elements
+        
+        // Find closest element to touch point
+        var closestIndex = -1
+        var minDist = Float.MAX_VALUE
+        
+        // Normalize coordinates
+        val normX = pageX / pageWidth
+        val normY = pageY / pageHeight
+        
+        val bW = data.width.toFloat()
+        val bH = data.height.toFloat()
+        
+        elements.forEachIndexed { index, element ->
+            val box = element.boundingBox ?: return@forEachIndexed
+            
+            val eCx = box.centerX() / bW
+            val eCy = box.centerY() / bH
+            
+            val dist = kotlin.math.hypot(normX - eCx, normY - eCy)
+            if (dist < minDist) {
+                minDist = dist
+                closestIndex = index
+            }
+        }
+        
+        if (closestIndex != -1) {
+            if (handle == HandleType.START) {
+                if (closestIndex <= selectionEndIndex) {
+                    selectionStartIndex = closestIndex
+                }
+            } else {
+                if (closestIndex >= selectionStartIndex) {
+                    selectionEndIndex = closestIndex
+                }
+            }
+            updateSelectionRects()
+            invalidate()
+        }
+    }
+
+    private fun updateSelectionRects() {
+        val data = pageTextCache[selectionStartPage] ?: return
+        val elements = data.elements
+        if (selectionStartIndex == -1 || selectionEndIndex == -1) return
+        
+        val bW = data.width.toFloat()
+        val bH = data.height.toFloat()
+        
+        val newRects = mutableListOf<RectF>()
+        
+        for (i in selectionStartIndex..selectionEndIndex) {
+            val box = elements[i].boundingBox ?: continue
+            newRects.add(RectF(
+                box.left / bW,
+                box.top / bH,
+                box.right / bW,
+                box.bottom / bH
+            ))
+        }
+        selectionRects = newRects
+    }
+
+    private fun showSelectionMenu() {
+        val data = pageTextCache[selectionStartPage] ?: return
+        val elements = data.elements
+        val sb = StringBuilder()
+        for (i in selectionStartIndex..selectionEndIndex) {
+            sb.append(elements[i].text).append(" ")
+        }
+        val text = sb.toString().trim()
+        
+        // Calculate bounding rect of selection for menu position
+        if (selectionRects.isEmpty()) return
+        
+        // Union of all rects
+        var minLeft = Float.MAX_VALUE
+        var minTop = Float.MAX_VALUE
+        var maxRight = Float.MIN_VALUE
+        var maxBottom = Float.MIN_VALUE
+        
+        selectionRects.forEach { 
+            minLeft = min(minLeft, it.left)
+            minTop = min(minTop, it.top)
+            maxRight = max(maxRight, it.right)
+            maxBottom = max(maxBottom, it.bottom)
+        }
+        
+        val rect = RectF(minLeft, minTop, maxRight, maxBottom)
+        
+        // Convert to screen coordinates for the listener
+        val pageTop = pageGapPx + selectionStartPage * (pageHeight + pageGapPx)
+        val screenRect = RectF(
+            (translateX + (pageGapPx + rect.left * pageWidth) * currentScale),
+            (translateY + (pageTop + rect.top * pageHeight) * currentScale),
+            (translateX + (pageGapPx + rect.right * pageWidth) * currentScale),
+            (translateY + (pageTop + rect.bottom * pageHeight) * currentScale)
+        )
+        
+        onHighlightActionListener?.onWordSelected(text, selectionRects, screenRect, selectionStartPage)
     }
 
     override fun computeScroll() {
@@ -356,6 +668,7 @@ class PdfViewerView @JvmOverloads constructor(
         // Clear cache
         pageCache.values.forEach { it.bitmap.recycle() }
         pageCache.clear()
+        pageTextCache.clear()
         
         pdfRenderer?.close()
         pdfRenderer = null
@@ -369,6 +682,18 @@ class PdfViewerView @JvmOverloads constructor(
         pageWidth = 0
         pageHeight = 0
         dimensionsCalculated = false
+        
+        clearSelection()
+    }
+
+    fun clearSelection() {
+        isSelecting = false
+        selectionStartPage = -1
+        selectionStartIndex = -1
+        selectionEndIndex = -1
+        selectionRects = emptyList()
+        draggingHandle = null
+        invalidate()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -532,6 +857,57 @@ class PdfViewerView @JvmOverloads constructor(
                     (pageTop + pageHeight).toFloat()
                 )
                 canvas.drawBitmap(cached.bitmap, srcRect, dstRect, pagePaint)
+
+                // Draw highlights for this page
+                highlights.filter { it.chapterIndex == i }.forEach { highlight ->
+                    try {
+                        val coords = highlight.rangeData.split(";").flatMap { rectStr ->
+                            rectStr.split(",").map { it.toFloat() }
+                        }
+                        
+                        for (j in coords.indices step 4) {
+                            if (j + 3 < coords.size) {
+                                // Coordinates are relative to page size (0..1)
+                                val hLeft = dstRect.left + coords[j] * pageWidth
+                                val hTop = dstRect.top + coords[j+1] * pageHeight
+                                val hRight = dstRect.left + coords[j+2] * pageWidth
+                                val hBottom = dstRect.top + coords[j+3] * pageHeight
+                                
+                                canvas.drawRect(hLeft, hTop, hRight, hBottom, highlightPaint)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Ignore invalid highlights
+                    }
+                }
+                
+                // Draw current selection
+                if (isSelecting && selectionStartPage == i) {
+                    selectionRects.forEach { rect ->
+                        val sLeft = dstRect.left + rect.left * pageWidth
+                        val sTop = dstRect.top + rect.top * pageHeight
+                        val sRight = dstRect.left + rect.right * pageWidth
+                        val sBottom = dstRect.top + rect.bottom * pageHeight
+                        canvas.drawRect(sLeft, sTop, sRight, sBottom, selectionPaint)
+                    }
+                    
+                    // Draw handles
+                    if (selectionRects.isNotEmpty()) {
+                        val first = selectionRects.first()
+                        val last = selectionRects.last()
+                        
+                        val startX = dstRect.left + first.left * pageWidth
+                        val startY = dstRect.top + first.bottom * pageHeight
+                        val endX = dstRect.left + last.right * pageWidth
+                        val endY = dstRect.top + last.bottom * pageHeight
+                        
+                        // Start handle (teardrop shape pointing up-right)
+                        canvas.drawCircle(startX - handleRadius/2, startY + handleRadius, handleRadius, handlePaint)
+                        
+                        // End handle (teardrop shape pointing up-left)
+                        canvas.drawCircle(endX + handleRadius/2, endY + handleRadius, handleRadius, handlePaint)
+                    }
+                }
             }
         }
         
