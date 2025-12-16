@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,9 @@ import java.io.File
 import java.io.FileOutputStream
 import androidx.core.view.size
 
+import android.widget.PopupWindow
+import android.view.ViewGroup
+
 @AndroidEntryPoint
 class WhiteboardEditorActivity : AppCompatActivity() {
 
@@ -33,15 +37,13 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     private var whiteboardId: Long = -1
     private var currentTitle = "Untitled Whiteboard"
     private var dataPath: String = ""
-    
-    // Multi-page support moved to ViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityWhiteboardEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
             val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
@@ -84,12 +86,29 @@ class WhiteboardEditorActivity : AppCompatActivity() {
             finish()
         }
 
-
-        binding.btnToolBrush.setOnClickListener { showBrushSettingsDialog() }
+        binding.btnToolPen.setOnClickListener { 
+            binding.whiteboardView.setTool(WhiteboardView.ToolType.PEN)
+            updateActiveToolUI(binding.btnToolPen)
+            showPenSettingsPopup(it) 
+        }
+        
+        binding.btnToolEraser.setOnClickListener { 
+            binding.whiteboardView.setTool(WhiteboardView.ToolType.ERASER)
+            updateActiveToolUI(binding.btnToolEraser)
+            showEraserSettingsPopup(it) 
+        }
+        
         binding.btnToolText.setOnClickListener { showAddTextDialog() }
-        binding.btnToolGrid.setOnClickListener { showGridTypeDialog() }
+        
+        binding.btnToolGrid.setOnClickListener { 
+            showGridSettingsPopup(it) 
+        }
+        
         binding.btnToolUndo.setOnClickListener { binding.whiteboardView.undo() }
         binding.btnToolRedo.setOnClickListener { binding.whiteboardView.redo() }
+        
+        // Initial UI state
+        updateActiveToolUI(binding.btnToolPen)
     }
     
     private fun setupPageNavigation() {
@@ -154,45 +173,16 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         binding.btnNextPage.alpha = if (viewModel.currentPageIndex < viewModel.pages.size - 1) 1.0f else 0.3f
     }
 
-    private fun showBrushSettingsDialog() {
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_brush_settings, null)
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-
-        val groupTool = dialogView.findViewById<android.widget.RadioGroup>(R.id.group_tool_type)
-        val radioPen = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_pen)
-        val radioEraser = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_eraser)
-        val containerColors = dialogView.findViewById<android.widget.LinearLayout>(R.id.container_colors)
-        val titleColor = dialogView.findViewById<android.widget.TextView>(R.id.title_color)
-        val seekSize = dialogView.findViewById<android.widget.SeekBar>(R.id.seek_size)
+    private fun showPenSettingsPopup(anchor: android.view.View) {
+        val view = LayoutInflater.from(this).inflate(R.layout.popup_pen_settings, null)
+        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        popup.elevation = 10f
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
         
-        // Initial State
-        val isEraser = binding.whiteboardView.isEraser
-        if (isEraser) {
-            radioEraser.isChecked = true
-            containerColors.alpha = 0.5f // Greyed out
-            containerColors.isEnabled = false // Logic disable
-        } else {
-            radioPen.isChecked = true
-            containerColors.alpha = 1.0f
-        }
+        val containerColors = view.findViewById<android.widget.LinearLayout>(R.id.container_colors)
+        val seekSize = view.findViewById<android.widget.SeekBar>(R.id.seek_size)
         
         seekSize.progress = binding.whiteboardView.getStrokeWidth().toInt()
-        
-        groupTool.setOnCheckedChangeListener { _, checkedId ->
-             if (checkedId == R.id.radio_eraser) {
-                 binding.whiteboardView.setEraser()
-                 containerColors.alpha = 0.5f
-                 titleColor.alpha = 0.5f
-                 // Use loops or kotlin children to disable clicks if needed
-             } else {
-                 binding.whiteboardView.setPenColor(binding.whiteboardView.drawColor) // Reset to last color
-                 containerColors.alpha = 1.0f
-                 titleColor.alpha = 1.0f
-             }
-        }
-        
         seekSize.setOnSeekBarChangeListener(object: android.widget.SeekBar.OnSeekBarChangeListener {
              override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
                  val size = progress.coerceAtLeast(1).toFloat()
@@ -205,46 +195,88 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         // Colors
         val colors = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.CYAN, Color.YELLOW)
         for (color in colors) {
-             val view = android.view.View(this)
+             val colorView = android.view.View(this)
              val params = android.widget.LinearLayout.LayoutParams(60, 60)
              params.setMargins(8, 0, 8, 0)
-             view.layoutParams = params
-             view.setBackgroundColor(color)
+             colorView.layoutParams = params
              
-             // Circular
              val shape = android.graphics.drawable.GradientDrawable()
              shape.shape = android.graphics.drawable.GradientDrawable.OVAL
              shape.setColor(color)
              shape.setStroke(2, Color.DKGRAY)
-             view.background = shape
+             colorView.background = shape
              
-             view.setOnClickListener {
-                 if (!radioEraser.isChecked) {
-                     binding.whiteboardView.setPenColor(color)
-                     dialog.dismiss()
-                 }
+             colorView.setOnClickListener {
+                 binding.whiteboardView.drawColor = color
+                 popup.dismiss()
              }
-             containerColors.addView(view)
+             containerColors.addView(colorView)
         }
         
-        dialog.show()
+        popup.showAsDropDown(anchor, 0, 10)
+    }
+    
+    private fun showEraserSettingsPopup(anchor: android.view.View) {
+        val view = LayoutInflater.from(this).inflate(R.layout.popup_eraser_settings, null)
+        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        popup.elevation = 10f
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        
+        val seekSize = view.findViewById<android.widget.SeekBar>(R.id.seek_size)
+        seekSize.progress = binding.whiteboardView.getStrokeWidth().toInt()
+        
+        seekSize.setOnSeekBarChangeListener(object: android.widget.SeekBar.OnSeekBarChangeListener {
+             override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                 val size = progress.coerceAtLeast(1).toFloat()
+                 binding.whiteboardView.setStrokeWidthGeneric(size)
+             }
+             override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+             override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+        })
+        
+        popup.showAsDropDown(anchor, 0, 10)
     }
 
-    private fun showGridTypeDialog() {
-        val types = arrayOf("None", "Dot", "Square", "Ruled")
-        val typeValues = arrayOf(GridType.NONE, GridType.DOT, GridType.SQUARE, GridType.RULED)
+    private fun showGridSettingsPopup(anchor: android.view.View) {
+        val view = LayoutInflater.from(this).inflate(R.layout.popup_grid_settings, null)
+        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        popup.elevation = 10f
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
         
-        AlertDialog.Builder(this)
-            .setTitle("Select Grid Type")
-            .setItems(types) { _, which ->
-                binding.whiteboardView.gridType = typeValues[which]
+        val group = view.findViewById<android.widget.RadioGroup>(R.id.group_grid_type)
+        val currentType = binding.whiteboardView.gridType
+        
+        when (currentType) {
+            GridType.NONE -> group.check(R.id.radio_none)
+            GridType.DOT -> group.check(R.id.radio_dot)
+            GridType.SQUARE -> group.check(R.id.radio_square)
+            GridType.RULED -> group.check(R.id.radio_ruled)
+        }
+        
+        group.setOnCheckedChangeListener { _, checkedId ->
+            val type = when (checkedId) {
+                R.id.radio_none -> GridType.NONE
+                R.id.radio_dot -> GridType.DOT
+                R.id.radio_square -> GridType.SQUARE
+                R.id.radio_ruled -> GridType.RULED
+                else -> GridType.NONE
             }
-            .show()
+            binding.whiteboardView.gridType = type
+            popup.dismiss()
+        }
+        
+        popup.showAsDropDown(anchor, 0, 10)
     }
     
     private fun updateActiveToolUI(activeButton: android.widget.ImageButton) {
-        // Unused now with single brush button? Or just highlight brush?
-        // Highlight logic can stay if needed, but for now we simplify.
+        val typedValue = android.util.TypedValue()
+        theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)
+        val backgroundResource = typedValue.resourceId
+        
+        binding.btnToolPen.setBackgroundResource(backgroundResource)
+        binding.btnToolEraser.setBackgroundResource(backgroundResource)
+        
+        activeButton.setBackgroundResource(R.drawable.bg_toolbar_tool)
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -284,16 +316,17 @@ class WhiteboardEditorActivity : AppCompatActivity() {
 
     private fun showAddTextDialog() {
         val editText = EditText(this)
-        AlertDialog.Builder(this)
+        org.weproz.etab.ui.custom.CustomDialog(this)
             .setTitle("Add Text")
             .setView(editText)
-            .setPositiveButton("Add") { _, _ ->
+            .setPositiveButton("Add") { dialog ->
                 val text = editText.text.toString()
                 if (text.isNotEmpty()) {
                     binding.whiteboardView.addText(text)
+                    dialog.dismiss()
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Cancel")
             .show()
     }
 

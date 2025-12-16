@@ -88,6 +88,7 @@ class CustomDialog(context: Context) {
             dialog.dismiss() 
         }
         negativeButton.visibility = View.VISIBLE
+        dialog.setCanceledOnTouchOutside(false)
         return this
     }
 

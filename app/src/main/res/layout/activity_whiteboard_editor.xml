@@ -48,14 +48,25 @@
                     android:gravity="center"
                     android:orientation="horizontal">
 
-                    <!-- Brush (Pen/Eraser/Color/Size) -->
+                    <!-- Pen -->
                     <ImageButton
-                        android:id="@+id/btn_tool_brush"
+                        android:id="@+id/btn_tool_pen"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:layout_marginEnd="8dp"
                         android:background="@drawable/bg_toolbar_tool"
                         android:src="@drawable/ic_brush"
+                        android:padding="8dp"
+                        app:tint="@android:color/white" />
+
+                    <!-- Eraser -->
+                    <ImageButton
+                        android:id="@+id/btn_tool_eraser"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_eraser"
                         android:padding="8dp"
                         app:tint="@android:color/white" />
 

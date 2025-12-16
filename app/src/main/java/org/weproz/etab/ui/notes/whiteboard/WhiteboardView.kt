@@ -12,9 +12,50 @@ class WhiteboardView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
+    enum class ToolType {
+        PEN, ERASER, SELECTOR
+    }
+
+    var currentTool: ToolType = ToolType.PEN
+        set(value) {
+            field = value
+            // Clear selection when switching tools
+            if (value != ToolType.SELECTOR) {
+                selectedTextAction = null
+                invalidate()
+            }
+        }
+
+    // Deprecate isEraser in favor of currentTool
+    var isEraser: Boolean
+        get() = currentTool == ToolType.ERASER
+        set(value) {
+            currentTool = if (value) ToolType.ERASER else ToolType.PEN
+        }
+
+    private var selectedTextAction: DrawAction.Text? = null
+    private val selectionPaint = Paint().apply {
+        color = Color.BLUE
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        pathEffect = DashPathEffect(floatArrayOf(10f, 10f), 0f)
+    }
+    private val handlePaint = Paint().apply {
+        color = Color.BLUE
+        style = Paint.Style.FILL
+    }
+    private val removeBtnPaint = Paint().apply {
+        color = Color.RED
+        style = Paint.Style.FILL
+    }
+    private val removeBtnTextPaint = Paint().apply {
+        color = Color.WHITE
+        textSize = 30f
+        textAlign = Paint.Align.CENTER
+    }
+
     var drawColor = Color.BLACK
     private var strokeWidth = 10f
-    var isEraser = false
     
     var onActionCompleted: (() -> Unit)? = null
     
@@ -163,7 +204,7 @@ class WhiteboardView @JvmOverloads constructor(
         // Draw current drawing path
         if (!currentPath.isEmpty) {
             drawPaint.strokeWidth = strokeWidth
-            if (isEraser) {
+            if (currentTool == ToolType.ERASER) {
                 drawPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
                 drawPaint.color = Color.TRANSPARENT
             } else {
@@ -176,12 +217,64 @@ class WhiteboardView @JvmOverloads constructor(
         // Reset Paint
         drawPaint.xfermode = null
         
+        // Draw Selection Box for Text
+        selectedTextAction?.let { textAction ->
+            drawSelectionBox(canvas, textAction)
+        }
+        
         canvas.restoreToCount(saveCount) // Restore layer
         canvas.restore() // Restore zoom/pan
     }
 
+    private fun drawSelectionBox(canvas: Canvas, action: DrawAction.Text) {
+        val bounds = getTextBounds(action)
+        val padding = 20f
+        val rect = RectF(
+            bounds.left - padding,
+            bounds.top - padding,
+            bounds.right + padding,
+            bounds.bottom + padding
+        )
+        
+        // Draw dashed border
+        canvas.drawRect(rect, selectionPaint)
+        
+        // Draw Remove Button (Top-Right)
+        val removeBtnRadius = 25f
+        canvas.drawCircle(rect.right, rect.top, removeBtnRadius, removeBtnPaint)
+        // Draw 'X'
+        val fontMetrics = removeBtnTextPaint.fontMetrics
+        val textHeight = fontMetrics.descent - fontMetrics.ascent
+        val textOffset = (textHeight / 2) - fontMetrics.descent
+        canvas.drawText("X", rect.right, rect.top + textOffset, removeBtnTextPaint)
+        
+        // Draw Resize Handle (Bottom-Right)
+        val handleRadius = 20f
+        canvas.drawCircle(rect.right, rect.bottom, handleRadius, handlePaint)
+    }
+
+    private fun getTextBounds(action: DrawAction.Text): RectF {
+        textPaint.textSize = action.textSize
+        val bounds = Rect()
+        textPaint.getTextBounds(action.text, 0, action.text.length, bounds)
+        // textPaint.getTextBounds returns minimal bounding box relative to (0,0)
+        // drawText draws at (x,y) which is the baseline origin.
+        // We need to adjust.
+        // Actually, getTextBounds returns rect relative to origin (0,0).
+        // So if we draw at (x,y), the rect is (x+left, y+top, x+right, y+bottom).
+        return RectF(
+            action.x + bounds.left,
+            action.y + bounds.top,
+            action.x + bounds.right,
+            action.y + bounds.bottom
+        )
+    }
+
     private var movingTextAction: DrawAction.Text? = null
     private var isDraggingText = false
+    private var isResizingText = false
+    private var initialTextSize = 0f
+    private var initialTouchY = 0f
     private var dragOffsetX = 0f
     private var dragOffsetY = 0f
 
@@ -204,6 +297,7 @@ class WhiteboardView @JvmOverloads constructor(
                 isDraggingText = false
                 movingTextAction = null
             }
+            isResizingText = false
             
              // Handle panning
             when (event.actionMasked) {
@@ -239,27 +333,52 @@ class WhiteboardView @JvmOverloads constructor(
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                // Check if hitting a text item (topmost first, so reverse iteration)
-                var hitText: DrawAction.Text? = null
-                val bounds = Rect()
+                // 1. Check Selection Handles/Body (Priority)
+                val currentSelection = selectedTextAction
+                if (currentSelection != null) {
+                    val bounds = getTextBounds(currentSelection)
+                    val padding = 20f
+                    val rect = RectF(bounds.left - padding, bounds.top - padding, bounds.right + padding, bounds.bottom + padding)
+                    
+                    // Remove
+                    if (dist(canvasX, canvasY, rect.right, rect.top) <= 40f) {
+                        paths.remove(currentSelection)
+                        selectedTextAction = null
+                        invalidate()
+                        return true
+                    }
+                    
+                    // Resize
+                    if (dist(canvasX, canvasY, rect.right, rect.bottom) <= 40f) {
+                        isResizingText = true
+                        initialTextSize = currentSelection.textSize
+                        initialTouchY = canvasY
+                        return true
+                    }
+                    
+                    // Move
+                    if (rect.contains(canvasX, canvasY)) {
+                        isDraggingText = true
+                        movingTextAction = currentSelection
+                        dragOffsetX = canvasX - currentSelection.x
+                        dragOffsetY = canvasY - currentSelection.y
+                        return true
+                    }
+                    
+                    // Tapped outside selection -> Deselect
+                    selectedTextAction = null
+                    invalidate()
+                }
                 
+                // 2. Check if hitting NEW text (to select)
+                var hitText: DrawAction.Text? = null
                 for (i in paths.lastIndex downTo 0) {
                     val action = paths[i]
                     if (action is DrawAction.Text) {
-                        textPaint.textSize = action.textSize
-                        textPaint.getTextBounds(action.text, 0, action.text.length, bounds)
-                        // Canvas drawText x,y is origin (bottom-left usually).
-                        // Bounds are relative to (0,0).
-                        // Actual rect:
-                        val textLeft = action.x + bounds.left
-                        val textTop = action.y + bounds.top
-                        val textRight = action.x + bounds.right
-                        val textBottom = action.y + bounds.bottom
-                        
-                        // Add some padding for easier touch
+                        val bounds = getTextBounds(action)
                         val padding = 20f
-                        if (canvasX >= textLeft - padding && canvasX <= textRight + padding &&
-                            canvasY >= textTop - padding && canvasY <= textBottom + padding) {
+                        if (canvasX >= bounds.left - padding && canvasX <= bounds.right + padding &&
+                            canvasY >= bounds.top - padding && canvasY <= bounds.bottom + padding) {
                             hitText = action
                             break
                         }
@@ -267,29 +386,36 @@ class WhiteboardView @JvmOverloads constructor(
                 }
                 
                 if (hitText != null) {
+                    selectedTextAction = hitText
                     isDraggingText = true
                     movingTextAction = hitText
                     dragOffsetX = canvasX - hitText.x
                     dragOffsetY = canvasY - hitText.y
-                } else {
-                    isDraggingText = false
-                    movingTextAction = null
-                    
-                    // Start Drawing
+                    invalidate()
+                    return true
+                }
+                
+                // 3. Drawing (if not handled by text)
+                if (currentTool == ToolType.PEN || currentTool == ToolType.ERASER) {
                     undonePaths.clear()
                     currentPath.reset()
                     currentPath.moveTo(canvasX, canvasY)
                     currentPoints.clear()
                     currentPoints.add(canvasX to canvasY)
+                    invalidate()
                 }
-                invalidate()
             }
             MotionEvent.ACTION_MOVE -> {
-                if (isDraggingText && movingTextAction != null) {
+                if (isResizingText && selectedTextAction != null) {
+                    val dy = canvasY - initialTouchY
+                    val newSize = (initialTextSize + dy / 2).coerceIn(20f, 300f)
+                    selectedTextAction!!.textSize = newSize
+                    invalidate()
+                } else if (isDraggingText && movingTextAction != null) {
                     movingTextAction!!.x = canvasX - dragOffsetX
                     movingTextAction!!.y = canvasY - dragOffsetY
                     invalidate()
-                } else {
+                } else if (currentTool == ToolType.PEN || currentTool == ToolType.ERASER) {
                     // Drawing
                     val lastPoint = currentPoints.lastOrNull()
                     if (lastPoint != null) {
@@ -304,25 +430,35 @@ class WhiteboardView @JvmOverloads constructor(
                 }
             }
             MotionEvent.ACTION_UP -> {
-                if (isDraggingText) {
-                    isDraggingText = false
-                    movingTextAction = null
-                    onActionCompleted?.invoke()
-                } else {
-                    currentPath.lineTo(canvasX, canvasY)
-                    val finalPath = Path(currentPath)
-                    val captureEraser = isEraser 
-                    val color = if (captureEraser) Color.TRANSPARENT else drawColor 
-                    // Create copy of points
-                    val pointsCopy = ArrayList(currentPoints)
-                    paths.add(DrawAction.Stroke(finalPath, pointsCopy, color, strokeWidth, captureEraser))
-                    currentPath.reset()
-                    invalidate()
-                    onActionCompleted?.invoke()
+                isDraggingText = false
+                isResizingText = false
+                movingTextAction = null
+                
+                if (currentTool == ToolType.PEN || currentTool == ToolType.ERASER) {
+                    if (currentPoints.isNotEmpty()) {
+                        currentPath.lineTo(canvasX, canvasY)
+                        // Commit path
+                        val stroke = DrawAction.Stroke(
+                            Path(currentPath),
+                            ArrayList(currentPoints),
+                            if (currentTool == ToolType.ERASER) Color.TRANSPARENT else drawColor,
+                            strokeWidth,
+                            currentTool == ToolType.ERASER
+                        )
+                        paths.add(stroke)
+                        currentPath.reset()
+                        currentPoints.clear()
+                        onActionCompleted?.invoke()
+                        invalidate()
+                    }
                 }
             }
         }
         return true
+    }
+    
+    private fun dist(x1: Float, y1: Float, x2: Float, y2: Float): Float {
+        return Math.hypot((x2 - x1).toDouble(), (y2 - y1).toDouble()).toFloat()
     }
 
     fun undo() {
@@ -347,8 +483,11 @@ class WhiteboardView @JvmOverloads constructor(
     }
 
     fun setEraser() {
-        isEraser = true
-        // drawColor ignored for eraser logic above
+        currentTool = ToolType.ERASER
+    }
+    
+    fun setTool(tool: ToolType) {
+        currentTool = tool
     }
     
     fun addText(text: String) {
@@ -359,7 +498,9 @@ class WhiteboardView @JvmOverloads constructor(
         val x = center[0].coerceIn(50f, PAGE_WIDTH - 50f)
         val y = center[1].coerceIn(50f, PAGE_HEIGHT - 50f)
         
-        paths.add(DrawAction.Text(text, x, y, drawColor, 60f))
+        val newText = DrawAction.Text(text, x, y, drawColor, 60f)
+        paths.add(newText)
+        selectedTextAction = newText // Auto-select
         invalidate()
         onActionCompleted?.invoke()
     }
