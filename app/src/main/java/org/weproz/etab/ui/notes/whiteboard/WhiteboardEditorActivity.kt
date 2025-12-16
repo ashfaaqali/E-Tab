@@ -28,6 +28,7 @@ import androidx.core.view.size
 
 import android.widget.PopupWindow
 import android.view.ViewGroup
+import org.weproz.etab.ui.custom.CustomDialog
 
 @AndroidEntryPoint
 class WhiteboardEditorActivity : AppCompatActivity() {
@@ -107,8 +108,23 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         binding.btnToolUndo.setOnClickListener { binding.whiteboardView.undo() }
         binding.btnToolRedo.setOnClickListener { binding.whiteboardView.redo() }
         
+        binding.btnToolClear.setOnClickListener { showClearConfirmationDialog() }
+        
         // Initial UI state
         updateActiveToolUI(binding.btnToolPen)
+    }
+
+    private fun showClearConfirmationDialog() {
+        CustomDialog(this)
+            .setTitle("Clear Whiteboard")
+            .setMessage("Are you sure you want to clear the entire whiteboard? This cannot be undone.")
+            .setPositiveButton("Clear") { dialog ->
+                binding.whiteboardView.clear()
+                binding.whiteboardView.onActionCompleted?.invoke() // Trigger save
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel")
+            .show()
     }
     
     private fun setupPageNavigation() {
@@ -181,6 +197,18 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         
         val containerColors = view.findViewById<android.widget.LinearLayout>(R.id.container_colors)
         val seekSize = view.findViewById<android.widget.SeekBar>(R.id.seek_size)
+        val groupType = view.findViewById<android.widget.RadioGroup>(R.id.group_pen_type)
+        
+        // Pen Type
+        if (binding.whiteboardView.isHighlighter) {
+            groupType.check(R.id.radio_highlighter)
+        } else {
+            groupType.check(R.id.radio_pen)
+        }
+        
+        groupType.setOnCheckedChangeListener { _, checkedId ->
+            binding.whiteboardView.isHighlighter = (checkedId == R.id.radio_highlighter)
+        }
         
         seekSize.progress = binding.whiteboardView.getStrokeWidth().toInt()
         seekSize.setOnSeekBarChangeListener(object: android.widget.SeekBar.OnSeekBarChangeListener {
@@ -194,6 +222,8 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         
         // Colors
         val colors = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.CYAN, Color.YELLOW)
+        val currentColor = binding.whiteboardView.drawColor
+        
         for (color in colors) {
              val colorView = android.view.View(this)
              val params = android.widget.LinearLayout.LayoutParams(60, 60)
@@ -203,7 +233,13 @@ class WhiteboardEditorActivity : AppCompatActivity() {
              val shape = android.graphics.drawable.GradientDrawable()
              shape.shape = android.graphics.drawable.GradientDrawable.OVAL
              shape.setColor(color)
-             shape.setStroke(2, Color.DKGRAY)
+             
+             if (color == currentColor) {
+                 shape.setStroke(6, Color.DKGRAY) // Selected indicator
+             } else {
+                 shape.setStroke(2, Color.LTGRAY)
+             }
+             
              colorView.background = shape
              
              colorView.setOnClickListener {

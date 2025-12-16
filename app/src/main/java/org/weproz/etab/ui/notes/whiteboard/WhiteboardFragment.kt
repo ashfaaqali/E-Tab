@@ -18,6 +18,7 @@ import org.weproz.etab.R
 import org.weproz.etab.data.local.AppDatabase
 import org.weproz.etab.data.local.WhiteboardEntity
 import org.weproz.etab.databinding.FragmentWhiteboardEditorBinding
+import org.weproz.etab.ui.custom.CustomDialog
 import java.io.File
 import java.io.FileOutputStream
 
@@ -102,9 +103,24 @@ class WhiteboardFragment : Fragment() {
         binding.btnToolUndo.setOnClickListener { binding.whiteboardView.undo() }
         binding.btnToolRedo.setOnClickListener { binding.whiteboardView.redo() }
         
+        binding.btnToolClear.setOnClickListener { showClearConfirmationDialog() }
+        
         binding.btnNewDoc.setOnClickListener {
             createNewDocument()
         }
+    }
+    
+    private fun showClearConfirmationDialog() {
+        CustomDialog(requireContext())
+            .setTitle("Clear Whiteboard")
+            .setMessage("Are you sure you want to clear the entire whiteboard? This cannot be undone.")
+            .setPositiveButton("Clear") { dialog ->
+                binding.whiteboardView.clear()
+                binding.whiteboardView.onActionCompleted?.invoke()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel")
+            .show()
     }
     
     private fun setupPageNavigation() {
@@ -203,6 +219,7 @@ class WhiteboardFragment : Fragment() {
             .create()
 
         val radioPen = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_pen)
+        val radioHighlighter = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_highlighter)
         val radioEraser = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_eraser)
         val containerColors = dialogView.findViewById<android.widget.LinearLayout>(R.id.container_colors)
         val seekSize = dialogView.findViewById<android.widget.SeekBar>(R.id.seek_size)
@@ -210,10 +227,15 @@ class WhiteboardFragment : Fragment() {
         
         // Initial State
         val isEraser = binding.whiteboardView.isEraser
+        val isHighlighter = binding.whiteboardView.isHighlighter
+        
         if (isEraser) {
             radioEraser.isChecked = true
             containerColors.alpha = 0.5f 
             containerColors.isEnabled = false 
+        } else if (isHighlighter) {
+            radioHighlighter.isChecked = true
+            containerColors.alpha = 1.0f
         } else {
             radioPen.isChecked = true
             containerColors.alpha = 1.0f
@@ -222,12 +244,22 @@ class WhiteboardFragment : Fragment() {
         seekSize.progress = binding.whiteboardView.getStrokeWidth().toInt()
         
          groupTool.setOnCheckedChangeListener { _, checkedId ->
-             if (checkedId == R.id.radio_eraser) {
-                 binding.whiteboardView.setEraser()
-                 containerColors.alpha = 0.5f
-             } else {
-                 binding.whiteboardView.setPenColor(binding.whiteboardView.drawColor)
-                 containerColors.alpha = 1.0f
+             when (checkedId) {
+                 R.id.radio_eraser -> {
+                     binding.whiteboardView.setEraser()
+                     binding.whiteboardView.isHighlighter = false
+                     containerColors.alpha = 0.5f
+                 }
+                 R.id.radio_highlighter -> {
+                     binding.whiteboardView.setPenColor(binding.whiteboardView.drawColor)
+                     binding.whiteboardView.isHighlighter = true
+                     containerColors.alpha = 1.0f
+                 }
+                 else -> { // Pen
+                     binding.whiteboardView.setPenColor(binding.whiteboardView.drawColor)
+                     binding.whiteboardView.isHighlighter = false
+                     containerColors.alpha = 1.0f
+                 }
              }
         }
 
@@ -241,6 +273,8 @@ class WhiteboardFragment : Fragment() {
         })
         
         val colors = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.CYAN, Color.YELLOW)
+        val currentColor = binding.whiteboardView.drawColor
+        
         for (color in colors) {
              val view = android.view.View(context)
              val params = android.widget.LinearLayout.LayoutParams(60, 60)
@@ -250,7 +284,13 @@ class WhiteboardFragment : Fragment() {
              val shape = android.graphics.drawable.GradientDrawable()
              shape.shape = android.graphics.drawable.GradientDrawable.OVAL
              shape.setColor(color)
-             shape.setStroke(2, Color.DKGRAY)
+             
+             if (color == currentColor) {
+                 shape.setStroke(6, Color.DKGRAY)
+             } else {
+                 shape.setStroke(2, Color.DKGRAY)
+             }
+             
              view.background = shape
              
              view.setOnClickListener {

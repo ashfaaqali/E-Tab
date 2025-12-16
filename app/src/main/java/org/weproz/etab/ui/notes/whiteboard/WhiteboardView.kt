@@ -56,6 +56,17 @@ class WhiteboardView @JvmOverloads constructor(
     }
 
     var drawColor = Color.BLACK
+    var isHighlighter = false
+    
+    private val effectiveDrawColor: Int
+        get() {
+            return if (isHighlighter) {
+                Color.argb(80, Color.red(drawColor), Color.green(drawColor), Color.blue(drawColor))
+            } else {
+                drawColor
+            }
+        }
+
     private var strokeWidth = 10f
     
     var onActionCompleted: (() -> Unit)? = null
@@ -206,7 +217,7 @@ class WhiteboardView @JvmOverloads constructor(
                 drawPaint.color = Color.TRANSPARENT
             } else {
                 drawPaint.xfermode = null
-                drawPaint.color = drawColor
+                drawPaint.color = effectiveDrawColor
             }
             canvas.drawPath(currentPath, drawPaint)
         }
@@ -438,7 +449,7 @@ class WhiteboardView @JvmOverloads constructor(
                         val stroke = DrawAction.Stroke(
                             Path(currentPath),
                             ArrayList(currentPoints),
-                            if (currentTool == ToolType.ERASER) Color.TRANSPARENT else drawColor,
+                            if (currentTool == ToolType.ERASER) Color.TRANSPARENT else effectiveDrawColor,
                             strokeWidth,
                             currentTool == ToolType.ERASER
                         )

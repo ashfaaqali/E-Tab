@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:background="?attr/colorPrimary"
+        android:background="@color/toolbar_background"
         android:padding="4dp"
         app:layout_constraintTop_toTopOf="parent">
 
@@ -22,7 +22,7 @@
             android:src="@drawable/ic_brush"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="6dp"
-            app:tint="@android:color/white"/>
+            app:tint="@color/toolbar_icon_tint"/>
 
         <ImageButton
             android:id="@+id/btn_tool_undo"
@@ -32,7 +32,7 @@
             android:src="@drawable/ic_undo"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="6dp"
-            app:tint="@android:color/white"/>
+            app:tint="@color/toolbar_icon_tint"/>
 
         <ImageButton
             android:id="@+id/btn_tool_redo"
@@ -42,7 +42,7 @@
             android:src="@drawable/ic_redo"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="6dp"
-            app:tint="@android:color/white"/>
+            app:tint="@color/toolbar_icon_tint"/>
 
         <ImageButton
             android:id="@+id/btn_tool_grid"
@@ -52,7 +52,7 @@
             android:src="@drawable/ic_grid"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="6dp"
-            app:tint="@android:color/white"/>
+            app:tint="@color/toolbar_icon_tint"/>
 
         <ImageButton
             android:id="@+id/btn_tool_text"
@@ -62,7 +62,16 @@
             android:src="@drawable/ic_text_fields"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="6dp"
-            app:tint="@android:color/white"/>
+            app:tint="@color/toolbar_icon_tint"/>
+
+        <ImageButton
+            android:id="@+id/btn_tool_clear"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@drawable/ic_delete"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="6dp"
+            app:tint="@color/toolbar_icon_tint"/>
 
         <!-- Space -->
         <View
@@ -77,7 +86,7 @@
             android:src="@drawable/ic_description"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="6dp"
-            app:tint="@android:color/white"/>
+            app:tint="@color/toolbar_icon_tint"/>
 
         <ImageButton
             android:id="@+id/btn_save"
@@ -86,7 +95,7 @@
             android:src="@drawable/ic_save"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="6dp"
-            app:tint="@android:color/white"
+            app:tint="@color/toolbar_icon_tint"
             android:visibility="gone"/> <!-- Auto-save preferred, but optional manual -->
 
     </LinearLayout>
