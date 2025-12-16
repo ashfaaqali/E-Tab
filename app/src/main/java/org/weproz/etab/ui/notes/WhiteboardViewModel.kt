@@ -11,6 +11,8 @@ import org.weproz.etab.data.repository.NoteRepository
 import javax.inject.Inject
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import java.io.File
@@ -20,15 +22,28 @@ class WhiteboardViewModel @Inject constructor(
     private val repository: NoteRepository
 ) : ViewModel() {
 
-    val whiteboards: Flow<List<WhiteboardEntity>> = repository.getAllWhiteboards()
-        .map { list ->
-            // Filter out whiteboards where the file does not exist
-            list.filter { File(it.dataPath).exists() }
+    private val _searchQuery = MutableStateFlow("")
+
+    val whiteboards: Flow<List<WhiteboardEntity>> = combine(
+        repository.getAllWhiteboards(),
+        _searchQuery
+    ) { list, query ->
+        val filteredList = if (query.isEmpty()) {
+            list
+        } else {
+            list.filter { it.title.contains(query, ignoreCase = true) }
         }
-        .flowOn(Dispatchers.IO)
+        // Filter out whiteboards where the file does not exist
+        filteredList.filter { File(it.dataPath).exists() }
+    }
+    .flowOn(Dispatchers.IO)
 
     init {
         syncWhiteboards()
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
     }
 
     private fun syncWhiteboards() {

@@ -20,6 +20,7 @@ class WhiteboardListFragment : Fragment() {
     private var _binding: FragmentWhiteboardListBinding? = null
     private val binding get() = _binding!!
     private val viewModel: WhiteboardViewModel by viewModels()
+    private val sharedViewModel: NotesSharedViewModel by viewModels({ requireParentFragment() })
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -105,6 +106,12 @@ class WhiteboardListFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.whiteboards.collectLatest { whiteboards ->
                 adapter.submitList(whiteboards)
+            }
+        }
+        
+        viewLifecycleOwner.lifecycleScope.launch {
+            sharedViewModel.searchQuery.collectLatest { query ->
+                viewModel.setSearchQuery(query)
             }
         }
 

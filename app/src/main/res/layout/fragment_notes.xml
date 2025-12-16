@@ -17,6 +17,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <org.weproz.etab.ui.custom.ETabSearchBar
+        android:id="@+id/search_bar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:searchHint="Search notes..."
+        app:isReadOnly="false"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tab_layout" />
+
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/pager"
         android:layout_width="0dp"
@@ -24,6 +35,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tab_layout" />
+        app:layout_constraintTop_toBottomOf="@id/search_bar" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

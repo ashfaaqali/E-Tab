@@ -19,6 +19,7 @@ class TextNotesListFragment : Fragment() {
     private var _binding: FragmentTextNotesListBinding? = null
     private val binding get() = _binding!!
     private val viewModel: TextNotesViewModel by viewModels()
+    private val sharedViewModel: NotesSharedViewModel by viewModels({ requireParentFragment() })
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -86,6 +87,12 @@ class TextNotesListFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.textNotes.collectLatest { notes ->
                 adapter.submitList(notes)
+            }
+        }
+        
+        viewLifecycleOwner.lifecycleScope.launch {
+            sharedViewModel.searchQuery.collectLatest { query ->
+                viewModel.setSearchQuery(query)
             }
         }
 
