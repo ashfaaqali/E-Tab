@@ -6,6 +6,7 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import org.weproz.etab.R
 import kotlin.math.abs
 
 class WhiteboardView @JvmOverloads constructor(
@@ -117,25 +118,21 @@ class WhiteboardView @JvmOverloads constructor(
         textSize = 60f
     }
 
-    // A4 Size at approx 300 DPI
-    private val PAGE_WIDTH = 2480f
-    private val PAGE_HEIGHT = 3508f
-    private val pageRect = RectF(0f, 0f, PAGE_WIDTH, PAGE_HEIGHT)
+    // Page Size (Dynamic based on View size)
+    private var PAGE_WIDTH = 0f
+    private var PAGE_HEIGHT = 0f
+    private val pageRect = RectF()
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        // Center and fit page initially
         if (w > 0 && h > 0) {
-            val scaleX = w.toFloat() / PAGE_WIDTH
-            val scaleY = h.toFloat() / PAGE_HEIGHT
-            val scale = minOf(scaleX, scaleY) * 0.9f // 90% fit
+            // Set page size to screen size
+            PAGE_WIDTH = w.toFloat()
+            PAGE_HEIGHT = h.toFloat()
+            pageRect.set(0f, 0f, PAGE_WIDTH, PAGE_HEIGHT)
             
-            val dx = (w - PAGE_WIDTH * scale) / 2f
-            val dy = (h - PAGE_HEIGHT * scale) / 2f
-            
+            // Reset matrix (1:1 scale initially)
             drawMatrix.reset()
-            drawMatrix.postScale(scale, scale)
-            drawMatrix.postTranslate(dx, dy)
             drawMatrix.invert(inverseMatrix)
         }
     }
@@ -144,7 +141,7 @@ class WhiteboardView @JvmOverloads constructor(
         super.onDraw(canvas)
         
         // Draw Desk Background (Outside the page)
-        canvas.drawColor(Color.parseColor("#E0E0E0")) // Light Gray Desk
+        canvas.drawColor(context.getColor(R.color.desk_bg))
 
         canvas.save()
         canvas.concat(drawMatrix) // Apply zoom/pan transformation

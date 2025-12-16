@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Semantic Colors for Night Mode -->
+    <color name="toolbar_background">#1F1F1F</color>
+    <color name="toolbar_icon_tint">#FFFFFF</color>
+    
+    <color name="whiteboard_bg">#121212</color>
+    <color name="bottom_bar_bg">#1F1F1F</color>
+    <color name="bottom_bar_content">#FFFFFF</color>
+    
+    <color name="background_main">#121212</color>
+    <color name="whiteboard_container_bg">#333333</color>
+    <color name="split_handle_bg">#424242</color>
+    
+    <color name="dialog_bg">#2C2C2C</color>
+    <color name="dialog_text">#FFFFFF</color>
+    <color name="dialog_text_secondary">#AAAAAA</color>
+    
+    <color name="popup_bg">#2C2C2C</color>
+    <color name="popup_stroke">#424242</color>
+    
+    <color name="desk_bg">#000000</color>
+    
+    <!-- Override standard colors if needed -->
+    <color name="background1">#000000</color>
+    <color name="background2">#121212</color>
+</resources>

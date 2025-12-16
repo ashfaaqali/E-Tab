@@ -9,6 +9,6 @@ class ETabApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         // Force Light Mode globally
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        // AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
     }
 }

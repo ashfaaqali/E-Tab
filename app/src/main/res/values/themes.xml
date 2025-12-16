@@ -2,6 +2,9 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.ETab" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
+        <item name="colorPrimary">@color/purple_40</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
         <item name="android:fontFamily">@font/inter</item>
         <item name="fontFamily">@font/inter</item>
         <item name="android:statusBarColor">@android:color/white</item>

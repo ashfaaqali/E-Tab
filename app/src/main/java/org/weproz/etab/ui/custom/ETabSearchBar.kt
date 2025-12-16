@@ -6,20 +6,24 @@ import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.widget.EditText
 import androidx.constraintlayout.widget.ConstraintLayout
+import com.google.android.material.card.MaterialCardView
 import org.weproz.etab.R
 
 class ETabSearchBar @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : ConstraintLayout(context, attrs, defStyleAttr) {
+) : MaterialCardView(context, attrs, defStyleAttr) {
 
     private val editText: EditText
 
     init {
         LayoutInflater.from(context).inflate(R.layout.view_custom_search_bar, this, true)
         editText = findViewById(R.id.et_search)
-
+        radius = 1000f
+        elevation = 0f
+        strokeWidth = 1
+        strokeColor = context.getColor(R.color.bottom_bar_content)
         context.theme.obtainStyledAttributes(
             attrs,
             R.styleable.CustomSearchBar,

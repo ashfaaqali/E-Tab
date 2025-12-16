@@ -26,4 +26,25 @@
     <color name="sepia_primary">#795548</color> <!-- you already had this -->
     <color name="sepia_surface">#F5E5C9</color>
     <color name="sepia_on_surface">#5B4B3A</color>
+
+    <!-- Semantic Colors -->
+    <color name="toolbar_background">@color/purple_40</color>
+    <color name="toolbar_icon_tint">@color/white</color>
+    
+    <color name="whiteboard_bg">#FFFFFF</color>
+    <color name="bottom_bar_bg">#F5F5F5</color>
+    <color name="bottom_bar_content">#000000</color>
+    
+    <color name="background_main">#F5F5F5</color>
+    <color name="whiteboard_container_bg">#CCCCCC</color>
+    <color name="split_handle_bg">#EEEEEE</color>
+    
+    <color name="dialog_bg">#FFFFFF</color>
+    <color name="dialog_text">#000000</color>
+    <color name="dialog_text_secondary">#AAAAAA</color>
+    
+    <color name="popup_bg">#F0FFFFFF</color>
+    <color name="popup_stroke">#E0E0E0</color>
+    
+    <color name="desk_bg">#E0E0E0</color>
 </resources>
