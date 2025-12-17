@@ -27,10 +27,74 @@
             android:contentDescription="Back"
             app:tint="@android:color/white" />
 
+        <LinearLayout
+            android:id="@+id/layout_tools"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginStart="16dp"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/btn_tool_pen"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_brush"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="6dp"
+                app:tint="@android:color/white"/>
+
+            <ImageButton
+                android:id="@+id/btn_tool_eraser"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_eraser"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="6dp"
+                app:tint="@android:color/white"/>
+
+            <ImageButton
+                android:id="@+id/btn_tool_undo"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_undo"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="6dp"
+                app:tint="@android:color/white"/>
+
+            <ImageButton
+                android:id="@+id/btn_tool_redo"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_redo"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="6dp"
+                app:tint="@android:color/white"/>
+
+            <ImageButton
+                android:id="@+id/btn_tool_clear"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_delete"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="6dp"
+                app:tint="@android:color/white"/>
+        </LinearLayout>
+
         <View
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1" />
+
+        <ImageButton
+            android:id="@+id/btn_annotate_toggle"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_edit"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Annotate"
+            app:tint="@android:color/white"
+            android:layout_marginEnd="8dp"/>
 
         <ImageButton
             android:id="@+id/btn_split_view"
@@ -47,6 +111,16 @@
         android:id="@+id/webview"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/top_action_bar" />
+
+    <org.weproz.etab.ui.notes.whiteboard.WhiteboardView
+        android:id="@+id/annotation_view"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

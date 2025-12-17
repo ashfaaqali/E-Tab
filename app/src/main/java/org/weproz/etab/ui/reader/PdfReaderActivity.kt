@@ -27,12 +27,27 @@ import org.weproz.etab.ui.search.DefinitionDialogFragment
 import java.io.File
 import java.io.FileInputStream
 import java.net.URLEncoder
+import android.widget.PopupWindow
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import android.graphics.Color
+import org.weproz.etab.ui.custom.CustomDialog
+import org.weproz.etab.ui.notes.whiteboard.WhiteboardView
+import org.weproz.etab.ui.notes.whiteboard.DrawAction
+import org.weproz.etab.ui.notes.whiteboard.WhiteboardSerializer
+import org.weproz.etab.ui.notes.whiteboard.ParsedPage
+import org.weproz.etab.ui.notes.whiteboard.GridType
 
 class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
 
     private lateinit var binding: ActivityPdfReaderBinding
     private var pdfPath: String? = null
     private var isSplitView = false
+    
+    // Annotation Persistence
+    private val pageAnnotations = mutableMapOf<Int, List<DrawAction>>()
+    private var currentPage = 1
+    private var totalPages = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,6 +65,7 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
 
         if (pdfPath != null) {
             setupWebView()
+            loadAnnotations()
             loadPdf(pdfPath!!)
             updateLastOpened(pdfPath!!)
         } else {
@@ -357,6 +373,29 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                 
                 function updatePage(page, total) {
                     Android.onPageChanged(page, total);
+                    updatePageBounds();
+                }
+                
+                function updatePageBounds() {
+                    // Get the visible page container
+                    var viewer = document.getElementById('viewer');
+                    if (!viewer) return;
+                    
+                    var pageIndex = window.PDFViewerApplication.page - 1;
+                    var pageView = window.PDFViewerApplication.pdfViewer.getPageView(pageIndex);
+                    
+                    if (pageView && pageView.div) {
+                        var rect = pageView.div.getBoundingClientRect();
+                        // Send bounds relative to viewport
+                        // Note: getBoundingClientRect returns values in CSS pixels.
+                        // Android WebView density scaling handles the conversion if we use density-independent pixels on Android side?
+                        // Actually, WebView.getScale() is deprecated.
+                        // The values from JS are in CSS pixels.
+                        // Android side needs to know the density to convert if the WebView is scaled.
+                        // But wait, WebView handles the scaling. 
+                        // If I send CSS pixels, and on Android side I multiply by density, it should match the view coordinates.
+                        Android.onPageBounds(rect.left, rect.top, rect.right, rect.bottom);
+                    }
                 }
 
                 window.PDFViewerApplication.eventBus.on('pagesinit', function() {
@@ -366,6 +405,15 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                 window.PDFViewerApplication.eventBus.on('pagechanging', function(evt) {
                     updatePage(evt.pageNumber, window.PDFViewerApplication.pagesCount);
                 });
+                
+                window.PDFViewerApplication.eventBus.on('scalechanging', function(evt) {
+                    setTimeout(updatePageBounds, 100); // Wait for render
+                });
+                
+                // Also update on scroll
+                window.addEventListener('scroll', function() {
+                    updatePageBounds();
+                }, true); // Capture phase to catch container scroll
                 
                 if (window.PDFViewerApplication.pagesCount > 0) {
                     updatePage(window.PDFViewerApplication.page, window.PDFViewerApplication.pagesCount);
@@ -709,6 +757,54 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
         binding.btnBack.setOnClickListener { finish() }
         binding.btnSplitView.setOnClickListener { toggleSplitView() }
 
+        // Annotation Controls
+        binding.annotationView.isTransparentBackground = true
+        
+        binding.btnAnnotateToggle.setOnClickListener {
+            val isVisible = binding.layoutTools.visibility == View.VISIBLE
+            if (isVisible) {
+                // Hide tools, disable annotation
+                binding.layoutTools.visibility = View.GONE
+                binding.annotationView.visibility = View.GONE
+                binding.btnAnnotateToggle.setColorFilter(Color.WHITE)
+            } else {
+                // Show tools, enable annotation
+                binding.layoutTools.visibility = View.VISIBLE
+                binding.annotationView.visibility = View.VISIBLE
+                binding.btnAnnotateToggle.setColorFilter(Color.YELLOW) // Active indicator
+                
+                // Default tool
+                updateActiveToolUI(binding.btnToolPen)
+                binding.annotationView.setTool(WhiteboardView.ToolType.PEN)
+            }
+        }
+        
+        binding.btnToolPen.setOnClickListener {
+            binding.annotationView.setTool(WhiteboardView.ToolType.PEN)
+            updateActiveToolUI(it as android.widget.ImageButton)
+            showPenSettingsPopup(it)
+        }
+        
+        binding.btnToolEraser.setOnClickListener {
+            binding.annotationView.setTool(WhiteboardView.ToolType.ERASER)
+            updateActiveToolUI(it as android.widget.ImageButton)
+            showEraserSettingsPopup(it)
+        }
+        
+        binding.btnToolUndo.setOnClickListener { binding.annotationView.undo() }
+        binding.btnToolRedo.setOnClickListener { binding.annotationView.redo() }
+        binding.btnToolClear.setOnClickListener { showClearConfirmationDialog() }
+
+        binding.btnOverlayPrev.setOnClickListener {
+            binding.webview.evaluateJavascript("window.PDFViewerApplication.page--", null)
+            showControlsTemporarily()
+        }
+
+        binding.btnOverlayNext.setOnClickListener {
+            binding.webview.evaluateJavascript("window.PDFViewerApplication.page++", null)
+            showControlsTemporarily()
+        }
+
         binding.btnZoomIn.setOnClickListener {
             binding.webview.evaluateJavascript("window.PDFViewerApplication.zoomIn();", null)
             showControlsTemporarily()
@@ -736,6 +832,113 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
         })
 
         showControlsTemporarily()
+    }
+
+    private fun updateActiveToolUI(activeButton: android.widget.ImageButton) {
+        val typedValue = android.util.TypedValue()
+        theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)
+        val backgroundResource = typedValue.resourceId
+        
+        binding.btnToolPen.setBackgroundResource(backgroundResource)
+        binding.btnToolEraser.setBackgroundResource(backgroundResource)
+        
+        activeButton.setBackgroundResource(R.drawable.bg_toolbar_tool)
+    }
+
+    private fun showPenSettingsPopup(anchor: android.view.View) {
+        val view = LayoutInflater.from(this).inflate(R.layout.popup_pen_settings, null)
+        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        popup.elevation = 10f
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        
+        val containerColors = view.findViewById<android.widget.LinearLayout>(R.id.container_colors)
+        val seekSize = view.findViewById<android.widget.SeekBar>(R.id.seek_size)
+        val groupType = view.findViewById<android.widget.RadioGroup>(R.id.group_pen_type)
+        
+        // Pen Type
+        if (binding.annotationView.isHighlighter) {
+            groupType.check(R.id.radio_highlighter)
+        } else {
+            groupType.check(R.id.radio_pen)
+        }
+        
+        groupType.setOnCheckedChangeListener { _, checkedId ->
+            binding.annotationView.isHighlighter = (checkedId == R.id.radio_highlighter)
+        }
+        
+        seekSize.progress = binding.annotationView.getStrokeWidth().toInt()
+        seekSize.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
+             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                 val size = progress.coerceAtLeast(1).toFloat()
+                 binding.annotationView.setStrokeWidthGeneric(size)
+             }
+             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        
+        // Colors
+        val colors = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.CYAN, Color.YELLOW)
+        val currentColor = binding.annotationView.drawColor
+        
+        for (color in colors) {
+             val colorView = View(this)
+             val params = android.widget.LinearLayout.LayoutParams(60, 60)
+             params.setMargins(8, 0, 8, 0)
+             colorView.layoutParams = params
+             
+             val shape = android.graphics.drawable.GradientDrawable()
+             shape.shape = android.graphics.drawable.GradientDrawable.OVAL
+             shape.setColor(color)
+             
+             if (color == currentColor) {
+                 shape.setStroke(6, Color.DKGRAY)
+             } else {
+                 shape.setStroke(2, Color.LTGRAY)
+             }
+             
+             colorView.background = shape
+             
+             colorView.setOnClickListener {
+                 binding.annotationView.drawColor = color
+                 popup.dismiss()
+             }
+             containerColors.addView(colorView)
+        }
+        
+        popup.showAsDropDown(anchor, 0, 10)
+    }
+    
+    private fun showEraserSettingsPopup(anchor: android.view.View) {
+        val view = LayoutInflater.from(this).inflate(R.layout.popup_eraser_settings, null)
+        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        popup.elevation = 10f
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        
+        val seekSize = view.findViewById<SeekBar>(R.id.seek_size)
+        seekSize.progress = binding.annotationView.getStrokeWidth().toInt()
+        
+        seekSize.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
+             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                 val size = progress.coerceAtLeast(1).toFloat()
+                 binding.annotationView.setStrokeWidthGeneric(size)
+             }
+             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        
+        popup.showAsDropDown(anchor, 0, 10)
+    }
+
+    private fun showClearConfirmationDialog() {
+        CustomDialog(this)
+            .setTitle("Clear Annotations")
+            .setMessage("Are you sure you want to clear all annotations?")
+            .setPositiveButton("Clear") { dialog ->
+                binding.annotationView.clear()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel")
+            .show()
     }
 
     // Bridge Implementation
@@ -789,6 +992,18 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
     }
 
     override fun onPageChanged(pageNumber: Int, totalPages: Int) {
+        // Save previous page
+        if (currentPage != pageNumber) {
+             pageAnnotations[currentPage] = binding.annotationView.getPaths().toList()
+        }
+        
+        this.currentPage = pageNumber
+        this.totalPages = totalPages
+        
+        // Load new page
+        val actions = pageAnnotations[pageNumber] ?: emptyList()
+        binding.annotationView.loadPaths(actions)
+
         runOnUiThread {
             binding.textPageIndicator.text = "Page $pageNumber of $totalPages"
             if (totalPages > 0) {
@@ -826,6 +1041,8 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
     private val hideControlsRunnable = Runnable {
         binding.zoomControls.animate().alpha(0f).setDuration(300).start()
         binding.bottomControls.animate().alpha(0f).setDuration(300).start()
+        binding.btnOverlayPrev.animate().alpha(0f).setDuration(300).start()
+        binding.btnOverlayNext.animate().alpha(0f).setDuration(300).start()
     }
 
     private fun showControlsTemporarily() {
@@ -833,6 +1050,10 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
         binding.zoomControls.visibility = View.VISIBLE
         binding.bottomControls.alpha = 1f
         binding.bottomControls.visibility = View.VISIBLE
+        binding.btnOverlayPrev.alpha = 1f
+        binding.btnOverlayPrev.visibility = View.VISIBLE
+        binding.btnOverlayNext.alpha = 1f
+        binding.btnOverlayNext.visibility = View.VISIBLE
 
         hideControlsHandler.removeCallbacks(hideControlsRunnable)
         hideControlsHandler.postDelayed(hideControlsRunnable, 4000)
@@ -939,11 +1160,71 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
         }
     }
 
+    override fun onPageBounds(left: Float, top: Float, right: Float, bottom: Float) {
+        runOnUiThread {
+            // Convert web coordinates to view coordinates
+            val density = resources.displayMetrics.density
+            val rect = android.graphics.RectF(
+                left * density,
+                top * density,
+                right * density,
+                bottom * density
+            )
+            binding.annotationView.setClipBounds(rect)
+        }
+    }
+
     override fun onPause() {
         super.onPause()
+        saveAnnotations()
         if (isSplitView) {
             val fragment = supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
             fragment?.saveWhiteboard()
+        }
+    }
+
+    private fun getAnnotationsFile(): File {
+        val fileName = File(pdfPath!!).name + ".annotations.json"
+        return File(getExternalFilesDir("annotations"), fileName)
+    }
+
+    private fun loadAnnotations() {
+        try {
+            val file = getAnnotationsFile()
+            if (file.exists()) {
+                val json = file.readText()
+                val data = WhiteboardSerializer.deserialize(json)
+                
+                pageAnnotations.clear()
+                data.pages.forEachIndexed { index, page ->
+                    pageAnnotations[index + 1] = page.actions
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun saveAnnotations() {
+        try {
+            // Save current page first
+            pageAnnotations[currentPage] = binding.annotationView.getPaths().toList()
+            
+            val pages = mutableListOf<ParsedPage>()
+            val maxPage = pageAnnotations.keys.maxOrNull() ?: 0
+            
+            for (i in 1..maxPage) {
+                val actions = pageAnnotations[i] ?: emptyList()
+                pages.add(ParsedPage(actions, GridType.NONE))
+            }
+            
+            val json = WhiteboardSerializer.serialize(pages)
+            val file = getAnnotationsFile()
+            file.parentFile?.mkdirs()
+            file.writeText(json)
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

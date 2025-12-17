@@ -11,6 +11,7 @@ interface PdfReaderBridge {
     fun onToggleControls()
     fun onPrevPage()
     fun onNextPage()
+    fun onPageBounds(left: Float, top: Float, right: Float, bottom: Float)
 }
 
 class PdfWebAppInterface(private val bridge: PdfReaderBridge) {
@@ -53,5 +54,10 @@ class PdfWebAppInterface(private val bridge: PdfReaderBridge) {
     @JavascriptInterface
     fun onNextPage() {
         bridge.onNextPage()
+    }
+
+    @JavascriptInterface
+    fun onPageBounds(left: Float, top: Float, right: Float, bottom: Float) {
+        bridge.onPageBounds(left, top, right, bottom)
     }
 }

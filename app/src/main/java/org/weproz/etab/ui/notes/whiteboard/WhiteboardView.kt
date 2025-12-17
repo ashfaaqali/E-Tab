@@ -57,6 +57,15 @@ class WhiteboardView @JvmOverloads constructor(
 
     var drawColor = Color.BLACK
     var isHighlighter = false
+    var isTransparentBackground = false
+    
+    // Clipping bounds for PDF annotation
+    private var clipBoundsRect: RectF? = null
+    
+    fun setClipBounds(rect: RectF?) {
+        clipBoundsRect = rect
+        invalidate()
+    }
     
     private val effectiveDrawColor: Int
         get() {
@@ -151,29 +160,39 @@ class WhiteboardView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         
-        // Draw Desk Background (Outside the page)
-        canvas.drawColor(context.getColor(R.color.desk_bg))
+        if (!isTransparentBackground) {
+            // Draw Desk Background (Outside the page)
+            canvas.drawColor(context.getColor(R.color.desk_bg))
+        }
 
         canvas.save()
         canvas.concat(drawMatrix) // Apply zoom/pan transformation
         
-        // Draw Page Shadow
-        val shadowPaint = Paint().apply {
-            color = Color.GRAY
-            style = Paint.Style.FILL
-            maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL)
-        }
-        canvas.drawRect(10f, 10f, PAGE_WIDTH + 10f, PAGE_HEIGHT + 10f, shadowPaint)
+        if (!isTransparentBackground) {
+            // Draw Page Shadow
+            val shadowPaint = Paint().apply {
+                color = Color.GRAY
+                style = Paint.Style.FILL
+                maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL)
+            }
+            canvas.drawRect(10f, 10f, PAGE_WIDTH + 10f, PAGE_HEIGHT + 10f, shadowPaint)
 
-        // Draw Page Background (White Paper)
-        val pagePaint = Paint().apply {
-            color = Color.WHITE
-            style = Paint.Style.FILL
+            // Draw Page Background (White Paper)
+            val pagePaint = Paint().apply {
+                color = Color.WHITE
+                style = Paint.Style.FILL
+            }
+            canvas.drawRect(pageRect, pagePaint)
         }
-        canvas.drawRect(pageRect, pagePaint)
 
         // Clip to Page Bounds for content
-        canvas.clipRect(pageRect)
+        if (isTransparentBackground) {
+            clipBoundsRect?.let { rect ->
+                canvas.clipRect(rect)
+            }
+        } else {
+            canvas.clipRect(pageRect)
+        }
         
         // 1. Draw Grid (Background)
         drawGrid(canvas)

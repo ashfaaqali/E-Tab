@@ -20,6 +20,18 @@ import org.weproz.etab.data.local.HighlightEntity
 import org.weproz.etab.databinding.ActivityReaderBinding
 import org.weproz.etab.ui.search.DefinitionDialogFragment
 import java.io.FileInputStream
+import android.widget.PopupWindow
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import android.graphics.Color
+import android.widget.SeekBar
+import org.weproz.etab.ui.custom.CustomDialog
+import org.weproz.etab.ui.notes.whiteboard.WhiteboardView
+import org.weproz.etab.ui.notes.whiteboard.DrawAction
+import org.weproz.etab.ui.notes.whiteboard.WhiteboardSerializer
+import org.weproz.etab.ui.notes.whiteboard.ParsedPage
+import org.weproz.etab.ui.notes.whiteboard.GridType
+import java.io.File
 
 class ReaderActivity : AppCompatActivity() {
 
@@ -27,6 +39,10 @@ class ReaderActivity : AppCompatActivity() {
     private var currentBook: nl.siegmann.epublib.domain.Book? = null
     private var currentChapterIndex = 0
     private var bookPath: String? = null
+    private var isFirstLoad = true
+    
+    // Annotation Persistence
+    private val chapterAnnotations = mutableMapOf<Int, List<DrawAction>>()
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +63,7 @@ class ReaderActivity : AppCompatActivity() {
         setupWebView()
 
         if (bookPath != null) {
+            loadAnnotations()
             loadBook(bookPath!!)
             // Update last opened time
             lifecycleScope.launch(Dispatchers.IO) {
@@ -63,6 +80,7 @@ class ReaderActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        saveAnnotations()
         // Save whiteboard when activity is paused
         if (isSplitView) {
             val fragment =
@@ -92,6 +110,41 @@ class ReaderActivity : AppCompatActivity() {
             toggleSplitView()
         }
 
+        // Annotation Controls
+        binding.annotationView.isTransparentBackground = true
+        
+        binding.btnAnnotateToggle.setOnClickListener {
+            val isVisible = binding.layoutTools.visibility == View.VISIBLE
+            if (isVisible) {
+                binding.layoutTools.visibility = View.GONE
+                binding.annotationView.visibility = View.GONE
+                binding.btnAnnotateToggle.setColorFilter(Color.WHITE)
+            } else {
+                binding.layoutTools.visibility = View.VISIBLE
+                binding.annotationView.visibility = View.VISIBLE
+                binding.btnAnnotateToggle.setColorFilter(Color.YELLOW)
+                
+                updateActiveToolUI(binding.btnToolPen)
+                binding.annotationView.setTool(WhiteboardView.ToolType.PEN)
+            }
+        }
+        
+        binding.btnToolPen.setOnClickListener {
+            binding.annotationView.setTool(WhiteboardView.ToolType.PEN)
+            updateActiveToolUI(it as android.widget.ImageButton)
+            showPenSettingsPopup(it)
+        }
+        
+        binding.btnToolEraser.setOnClickListener {
+            binding.annotationView.setTool(WhiteboardView.ToolType.ERASER)
+            updateActiveToolUI(it as android.widget.ImageButton)
+            showEraserSettingsPopup(it)
+        }
+        
+        binding.btnToolUndo.setOnClickListener { binding.annotationView.undo() }
+        binding.btnToolRedo.setOnClickListener { binding.annotationView.redo() }
+        binding.btnToolClear.setOnClickListener { showClearConfirmationDialog() }
+
         binding.btnOverlayPrev.setOnClickListener {
             prevChapter()
             showNavigation()
@@ -105,6 +158,113 @@ class ReaderActivity : AppCompatActivity() {
         binding.btnNotesToggle.setOnClickListener {
             toggleSplitView()
         }
+    }
+
+    private fun updateActiveToolUI(activeButton: android.widget.ImageButton) {
+        val typedValue = android.util.TypedValue()
+        theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)
+        val backgroundResource = typedValue.resourceId
+        
+        binding.btnToolPen.setBackgroundResource(backgroundResource)
+        binding.btnToolEraser.setBackgroundResource(backgroundResource)
+        
+        activeButton.setBackgroundResource(R.drawable.bg_toolbar_tool)
+    }
+
+    private fun showPenSettingsPopup(anchor: android.view.View) {
+        val view = LayoutInflater.from(this).inflate(R.layout.popup_pen_settings, null)
+        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        popup.elevation = 10f
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        
+        val containerColors = view.findViewById<android.widget.LinearLayout>(R.id.container_colors)
+        val seekSize = view.findViewById<SeekBar>(R.id.seek_size)
+        val groupType = view.findViewById<android.widget.RadioGroup>(R.id.group_pen_type)
+        
+        // Pen Type
+        if (binding.annotationView.isHighlighter) {
+            groupType.check(R.id.radio_highlighter)
+        } else {
+            groupType.check(R.id.radio_pen)
+        }
+        
+        groupType.setOnCheckedChangeListener { _, checkedId ->
+            binding.annotationView.isHighlighter = (checkedId == R.id.radio_highlighter)
+        }
+        
+        seekSize.progress = binding.annotationView.getStrokeWidth().toInt()
+        seekSize.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
+             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                 val size = progress.coerceAtLeast(1).toFloat()
+                 binding.annotationView.setStrokeWidthGeneric(size)
+             }
+             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        
+        // Colors
+        val colors = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.CYAN, Color.YELLOW)
+        val currentColor = binding.annotationView.drawColor
+        
+        for (color in colors) {
+             val colorView = android.view.View(this)
+             val params = android.widget.LinearLayout.LayoutParams(60, 60)
+             params.setMargins(8, 0, 8, 0)
+             colorView.layoutParams = params
+             
+             val shape = android.graphics.drawable.GradientDrawable()
+             shape.shape = android.graphics.drawable.GradientDrawable.OVAL
+             shape.setColor(color)
+             
+             if (color == currentColor) {
+                 shape.setStroke(6, Color.DKGRAY)
+             } else {
+                 shape.setStroke(2, Color.LTGRAY)
+             }
+             
+             colorView.background = shape
+             
+             colorView.setOnClickListener {
+                 binding.annotationView.drawColor = color
+                 popup.dismiss()
+             }
+             containerColors.addView(colorView)
+        }
+        
+        popup.showAsDropDown(anchor, 0, 10)
+    }
+    
+    private fun showEraserSettingsPopup(anchor: android.view.View) {
+        val view = LayoutInflater.from(this).inflate(R.layout.popup_eraser_settings, null)
+        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        popup.elevation = 10f
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        
+        val seekSize = view.findViewById<SeekBar>(R.id.seek_size)
+        seekSize.progress = binding.annotationView.getStrokeWidth().toInt()
+        
+        seekSize.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
+             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                 val size = progress.coerceAtLeast(1).toFloat()
+                 binding.annotationView.setStrokeWidthGeneric(size)
+             }
+             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        
+        popup.showAsDropDown(anchor, 0, 10)
+    }
+
+    private fun showClearConfirmationDialog() {
+        CustomDialog(this)
+            .setTitle("Clear Annotations")
+            .setMessage("Are you sure you want to clear all annotations?")
+            .setPositiveButton("Clear") { dialog ->
+                binding.annotationView.clear()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel")
+            .show()
     }
 
     private fun showNavigation() {
@@ -376,7 +536,17 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun displayChapter(index: Int) {
+        if (!isFirstLoad) {
+             chapterAnnotations[currentChapterIndex] = binding.annotationView.getPaths().toList()
+        }
+        isFirstLoad = false
+        
         currentChapterIndex = index
+        
+        // Load annotations for new chapter
+        val actions = chapterAnnotations[index] ?: emptyList()
+        binding.annotationView.loadPaths(actions)
+
         currentBook?.let { book ->
             if (index < book.spine.size()) {
                 val resource = book.spine.getResource(index)
@@ -843,6 +1013,51 @@ class ReaderActivity : AppCompatActivity() {
                     )
                 }
             }
+        }
+    }
+
+    private fun getAnnotationsFile(): File {
+        val fileName = File(bookPath!!).name + ".annotations.json"
+        return File(getExternalFilesDir("annotations"), fileName)
+    }
+
+    private fun loadAnnotations() {
+        try {
+            val file = getAnnotationsFile()
+            if (file.exists()) {
+                val json = file.readText()
+                val data = WhiteboardSerializer.deserialize(json)
+                
+                chapterAnnotations.clear()
+                data.pages.forEachIndexed { index, page ->
+                    chapterAnnotations[index] = page.actions
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun saveAnnotations() {
+        try {
+            // Save current chapter first
+            chapterAnnotations[currentChapterIndex] = binding.annotationView.getPaths().toList()
+            
+            val pages = mutableListOf<ParsedPage>()
+            val maxChapter = chapterAnnotations.keys.maxOrNull() ?: 0
+            
+            for (i in 0..maxChapter) {
+                val actions = chapterAnnotations[i] ?: emptyList()
+                pages.add(ParsedPage(actions, GridType.NONE))
+            }
+            
+            val json = WhiteboardSerializer.serialize(pages)
+            val file = getAnnotationsFile()
+            file.parentFile?.mkdirs()
+            file.writeText(json)
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
