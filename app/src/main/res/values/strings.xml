@@ -8,4 +8,15 @@
     <string name="books">Books</string>
     <string name="dictionary">Dictionary</string>
     <string name="focus">Focus</string>
+    <string name="highlighter">Highlighter</string>
+    <string name="pen">Pen</string>
+    <string name="color">Color</string>
+    <string name="type">Type</string>
+    <string name="size">Size</string>
+    <string name="eraser_size">Eraser Size</string>
+    <string name="grid_type">Grid Type</string>
+    <string name="none">None</string>
+    <string name="dot">Dot</string>
+    <string name="square">Square</string>
+    <string name="ruled">Ruled</string>
 </resources>

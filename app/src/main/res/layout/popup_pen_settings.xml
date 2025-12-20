@@ -10,8 +10,8 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Type"
-        android:textColor="@android:color/black"
+        android:text="@string/type"
+        android:textColor="?attr/titleTextColor"
         android:textStyle="bold"
         android:layout_marginBottom="8dp"/>
 
@@ -26,21 +26,23 @@
             android:id="@+id/radio_pen"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Pen"
+            android:text="@string/pen"
+            android:textColor="?attr/titleTextColor"
             android:layout_marginEnd="16dp"/>
 
         <RadioButton
             android:id="@+id/radio_highlighter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Highlighter"/>
+            android:textColor="?attr/titleTextColor"
+            android:text="@string/highlighter"/>
     </RadioGroup>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Color"
-        android:textColor="@android:color/black"
+        android:text="@string/color"
+        android:textColor="?attr/titleTextColor"
         android:textStyle="bold"
         android:layout_marginBottom="8dp"/>
 
@@ -54,8 +56,8 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Size"
-        android:textColor="@android:color/black"
+        android:text="@string/size"
+        android:textColor="?attr/titleTextColor"
         android:textStyle="bold"
         android:layout_marginBottom="8dp"/>
 

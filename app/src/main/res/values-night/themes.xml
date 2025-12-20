@@ -4,6 +4,9 @@
         // Button colors
         <item name="buttonTint">@color/white</item>
 
+        // Text Colors
+        <item name="titleTextColor">@color/white</item>
+
         <item name="colorPrimary">@color/md_theme_primary</item>
         <item name="colorOnPrimary">@color/md_theme_onPrimary</item>
         <item name="colorPrimaryContainer">@color/md_theme_primaryContainer</item>

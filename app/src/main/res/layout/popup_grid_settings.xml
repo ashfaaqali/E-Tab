@@ -10,8 +10,8 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Grid Type"
-        android:textColor="@android:color/black"
+        android:text="@string/grid_type"
+        android:textColor="?attr/titleTextColor"
         android:textStyle="bold"
         android:layout_marginBottom="8dp"/>
 
@@ -25,26 +25,28 @@
             android:id="@+id/radio_none"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="None"/>
+            android:textColor="?attr/titleTextColor"
+            android:text="@string/none"/>
             
         <RadioButton
             android:id="@+id/radio_dot"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Dot"/>
+            android:textColor="?attr/titleTextColor"
+            android:text="@string/dot"/>
             
         <RadioButton
             android:id="@+id/radio_square"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Square"/>
+            android:textColor="?attr/titleTextColor"
+            android:text="@string/square"/>
             
         <RadioButton
             android:id="@+id/radio_ruled"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Ruled"/>
-            
+            android:textColor="?attr/titleTextColor"
+            android:text="@string/ruled"/>
     </RadioGroup>
-
 </LinearLayout>
