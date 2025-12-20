@@ -51,11 +51,11 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:visibility="gone"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="8dp"
+        android:visibility="visible"
         app:layout_constraintTop_toBottomOf="@id/search_bar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -66,8 +66,8 @@
             android:layout_height="32dp"
             android:src="@drawable/ic_arrow_back"
             android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="?attr/colorPrimary"
-            android:contentDescription="Back" />
+            app:tint="?attr/colorControlActivated"
+            android:contentDescription="@string/back" />
 
         <TextView
             android:id="@+id/text_folder_path"
@@ -76,7 +76,7 @@
             android:layout_marginStart="12dp"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:textColor="?attr/colorPrimary"
+            android:textColor="?attr/colorControlActivated"
             android:ellipsize="start"
             android:maxLines="1" />
     </LinearLayout>

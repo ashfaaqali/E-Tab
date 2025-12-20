@@ -27,7 +27,7 @@
             android:contentDescription="Back"
             app:tint="@android:color/white" />
 
-        <org.weproz.etab.ui.notes.whiteboard.WhiteboardToolbarView
+        <org.weproz.etab.ui.custom.WhiteboardToolbarView
             android:id="@+id/whiteboard_toolbar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

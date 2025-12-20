@@ -1,4 +1,4 @@
-// Moved to org.weproz.etab.ui.custom.WhiteboardToolbarView
+package org.weproz.etab.ui.custom
 
 import android.content.Context
 import android.graphics.Color
@@ -11,10 +11,9 @@ import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.SeekBar
 import org.weproz.etab.R
-import org.weproz.etab.ui.custom.CustomDialog
 import org.weproz.etab.ui.notes.whiteboard.WhiteboardView
 
-private class WhiteboardToolbarViewOld @JvmOverloads constructor(
+class WhiteboardToolbarView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : LinearLayout(context, attrs, defStyleAttr) {
 
