@@ -2,4 +2,10 @@
     <string name="app_name">E-Tab</string>
     <string name="search">Search...</string>
     <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="notes">Notes</string>
+    <string name="books">Books</string>
+    <string name="dictionary">Dictionary</string>
+    <string name="focus">Focus</string>
 </resources>

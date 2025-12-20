@@ -22,8 +22,17 @@ class ETabSearchBar @JvmOverloads constructor(
         editText = findViewById(R.id.et_search)
         radius = 1000f
         elevation = 0f
-//        strokeWidth = 0
-//        strokeColor = context.getColor(R.color.bottom_bar_content)
+        
+        val typedValue = android.util.TypedValue()
+        if (context.theme.resolveAttribute(com.google.android.material.R.attr.colorSurfaceContainerHigh, typedValue, true)) {
+            setCardBackgroundColor(typedValue.data)
+        }
+        
+        strokeWidth = (1 * resources.displayMetrics.density).toInt()
+        if (context.theme.resolveAttribute(com.google.android.material.R.attr.colorOutlineVariant, typedValue, true)) {
+            strokeColor = typedValue.data
+        }
+
         context.theme.obtainStyledAttributes(
             attrs,
             R.styleable.CustomSearchBar,

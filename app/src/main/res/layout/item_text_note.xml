@@ -18,7 +18,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Note Title"
-            android:textAppearance="?attr/textAppearanceSubtitle1"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
             android:textStyle="bold" />
 
         <TextView
@@ -29,7 +29,7 @@
             android:ellipsize="end"
             android:maxLines="3"
             android:text="Note preview content..."
-            android:textAppearance="?attr/textAppearanceBody2" />
+            android:textAppearance="?attr/textAppearanceSubtitle1" />
 
     </LinearLayout>
 

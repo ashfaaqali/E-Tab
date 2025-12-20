@@ -15,7 +15,7 @@
         android:paddingEnd="8dp"
         android:paddingTop="12dp"
         android:paddingBottom="8dp"
-        android:background="@android:color/white"
+        android:background="?attr/colorOnSecondary"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -25,7 +25,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Books"
+            android:text="@string/books"
             android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary" />
@@ -35,7 +35,7 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
-            android:text="Focus"
+            android:text="@string/focus"
             android:textSize="12sp"
             app:icon="@drawable/ic_focus_mode"
             app:iconSize="18dp"
@@ -44,7 +44,6 @@
             android:backgroundTint="?attr/colorPrimary"
             android:textColor="?attr/colorOnPrimary"
             app:strokeWidth="0dp" />
-
     </LinearLayout>
 
     <androidx.fragment.app.FragmentContainerView
@@ -62,12 +61,12 @@
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/nav_view"
         android:layout_width="0dp"
+        style="@style/Widget.MaterialComponents.BottomNavigationView"
         android:layout_height="wrap_content"
         android:background="?attr/colorPrimaryContainer"
         app:menu="@menu/bottom_nav_menu"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
-
 
 </androidx.constraintlayout.widget.ConstraintLayout>
