@@ -7,7 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import androidx.fragment.app.DialogFragment
-import org.weproz.etab.data.local.DictionaryEntry
+import org.weproz.etab.data.local.entity.DictionaryEntry
 import org.weproz.etab.databinding.DialogDefinitionBinding
 
 class DefinitionDialogFragment : DialogFragment() {

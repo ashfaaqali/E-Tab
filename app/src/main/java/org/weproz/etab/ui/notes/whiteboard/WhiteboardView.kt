@@ -164,7 +164,7 @@ class WhiteboardView @JvmOverloads constructor(
         
         if (!isTransparentBackground) {
             // Draw Desk Background (Outside the page)
-            canvas.drawColor(context.getColor(R.color.desk_bg))
+            canvas.drawColor(context.getColor(R.color.md_theme_error))
         }
 
         canvas.save()

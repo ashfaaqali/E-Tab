@@ -15,7 +15,7 @@
         android:src="@drawable/ic_brush"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:padding="8dp"
-        app:tint="@android:color/black"/>
+        app:tint="?attr/colorOnSurface"/>
 
     <ImageButton
         android:id="@+id/btn_tool_eraser"
@@ -24,7 +24,7 @@
         android:src="@drawable/ic_eraser"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:padding="8dp"
-        app:tint="@android:color/black"/>
+        app:tint="?attr/colorOnSurface"/>
 
     <ImageButton
         android:id="@+id/btn_tool_lasso"
@@ -33,14 +33,14 @@
         android:src="@drawable/ic_lasso"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:padding="8dp"
-        app:tint="@android:color/black"/>
+        app:tint="?attr/colorOnSurface"/>
 
     <View
         android:layout_width="1dp"
         android:layout_height="24dp"
         android:layout_gravity="center_vertical"
         android:layout_marginHorizontal="4dp"
-        android:background="#E0E0E0"/>
+        android:background="?attr/colorOutlineVariant"/>
 
     <ImageButton
         android:id="@+id/btn_tool_undo"
@@ -49,7 +49,7 @@
         android:src="@drawable/ic_undo"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:padding="8dp"
-        app:tint="@android:color/black"/>
+        app:tint="?attr/colorOnSurface"/>
 
     <ImageButton
         android:id="@+id/btn_tool_redo"
@@ -58,7 +58,7 @@
         android:src="@drawable/ic_redo"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:padding="8dp"
-        app:tint="@android:color/black"/>
+        app:tint="?attr/colorOnSurface"/>
 
     <ImageButton
         android:id="@+id/btn_tool_clear"
@@ -67,6 +67,6 @@
         android:src="@drawable/ic_delete"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:padding="8dp"
-        app:tint="@android:color/black"/>
+        app:tint="?attr/colorOnSurface"/>
 
 </LinearLayout>

@@ -1,4 +1,4 @@
-package org.weproz.etab.data.local
+package org.weproz.etab.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity

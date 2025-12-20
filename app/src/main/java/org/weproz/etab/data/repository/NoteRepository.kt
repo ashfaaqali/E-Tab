@@ -1,8 +1,8 @@
 package org.weproz.etab.data.repository
 
-import org.weproz.etab.data.local.AppDatabase
-import org.weproz.etab.data.local.TextNoteEntity
-import org.weproz.etab.data.local.WhiteboardEntity
+import org.weproz.etab.data.local.database.AppDatabase
+import org.weproz.etab.data.local.entity.TextNoteEntity
+import org.weproz.etab.data.local.entity.WhiteboardEntity
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton

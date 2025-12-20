@@ -1,9 +1,11 @@
-package org.weproz.etab.data.local
+package org.weproz.etab.data.local.database
 
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import org.weproz.etab.data.local.dao.WordDao
+import org.weproz.etab.data.local.entity.DictionaryEntry
 
 @Database(entities = [DictionaryEntry::class], version = 3, exportSchema = false)
 abstract class WordDatabase : RoomDatabase() {

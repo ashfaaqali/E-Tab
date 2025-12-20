@@ -1,0 +1,47 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "delete_unused_file",
+			"type": "shell",
+			"command": "rm /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/ui/books/Book.kt",
+			"isBackground": false,
+			"group": "none"
+		},
+		{
+			"label": "list_files",
+			"type": "shell",
+			"command": "ls -la /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/ui/books/",
+			"isBackground": false,
+			"group": "none"
+		},
+		{
+			"label": "remove_book_kt",
+			"type": "shell",
+			"command": "rm /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/ui/books/Book.kt",
+			"isBackground": false,
+			"group": "none"
+		},
+		{
+			"label": "delete_book_kt_relative",
+			"type": "shell",
+			"command": "rm app/src/main/java/org/weproz/etab/ui/books/Book.kt",
+			"isBackground": false,
+			"group": "none"
+		},
+		{
+			"label": "move_book_kt",
+			"type": "shell",
+			"command": "mv app/src/main/java/org/weproz/etab/ui/books/Book.kt /tmp/Book.kt.bak",
+			"isBackground": false,
+			"group": "none"
+		},
+		{
+			"label": "delete_old_files",
+			"type": "shell",
+			"command": "rm /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/AppDatabase.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/BookDao.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/BookEntity.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/DictionaryEntry.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/HighlightDao.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/HighlightEntity.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/TextNoteDao.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/TextNoteEntity.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/WhiteboardDao.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/WhiteboardEntity.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/WordDao.kt /Users/admin/Personal/ETab/app/src/main/java/org/weproz/etab/data/local/WordDatabase.kt",
+			"isBackground": false,
+			"group": "none"
+		}
+	]
+}

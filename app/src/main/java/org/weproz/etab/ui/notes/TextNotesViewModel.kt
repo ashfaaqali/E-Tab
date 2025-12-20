@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import org.weproz.etab.data.local.TextNoteEntity
+import org.weproz.etab.data.local.entity.TextNoteEntity
 import org.weproz.etab.data.repository.NoteRepository
 import javax.inject.Inject
 

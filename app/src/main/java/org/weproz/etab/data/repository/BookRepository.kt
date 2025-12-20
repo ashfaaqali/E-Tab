@@ -4,9 +4,9 @@ import android.content.Context
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.weproz.etab.data.local.BookDao
-import org.weproz.etab.data.local.BookEntity
-import org.weproz.etab.data.local.BookType
+import org.weproz.etab.data.local.dao.BookDao
+import org.weproz.etab.data.local.entity.BookEntity
+import org.weproz.etab.data.local.entity.BookType
 import java.io.File
 
 class BookRepository(private val context: Context, private val bookDao: BookDao) {

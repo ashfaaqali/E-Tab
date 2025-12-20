@@ -8,7 +8,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import org.weproz.etab.R
-import org.weproz.etab.data.local.WhiteboardEntity
+import org.weproz.etab.data.local.entity.WhiteboardEntity
 import org.weproz.etab.databinding.ItemWhiteboardBinding
 
 class WhiteboardAdapter(

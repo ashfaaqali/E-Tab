@@ -5,8 +5,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
-import org.weproz.etab.data.local.AppDatabase
-import org.weproz.etab.data.local.TextNoteEntity
+import org.weproz.etab.data.local.database.AppDatabase
+import org.weproz.etab.data.local.entity.TextNoteEntity
 import org.weproz.etab.databinding.ActivityNoteEditorBinding
 
 class NoteEditorActivity : AppCompatActivity() {

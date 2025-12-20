@@ -6,7 +6,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import org.weproz.etab.R
-import org.weproz.etab.data.local.DictionaryEntry
+import org.weproz.etab.data.local.entity.DictionaryEntry
 
 class SuggestionAdapter(
     private val onItemClick: (DictionaryEntry) -> Unit

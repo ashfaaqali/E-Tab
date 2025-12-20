@@ -6,8 +6,8 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import org.weproz.etab.data.local.AppDatabase
-import org.weproz.etab.data.local.WordDatabase
+import org.weproz.etab.data.local.database.AppDatabase
+import org.weproz.etab.data.local.database.WordDatabase
 import org.weproz.etab.data.repository.NoteRepository
 import javax.inject.Singleton
 

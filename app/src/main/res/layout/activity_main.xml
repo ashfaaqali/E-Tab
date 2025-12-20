@@ -39,10 +39,10 @@
             android:textSize="12sp"
             app:icon="@drawable/ic_focus_mode"
             app:iconSize="18dp"
-            app:iconTint="@android:color/white"
+            app:iconTint="?attr/colorOnPrimary"
             app:cornerRadius="20dp"
-            android:backgroundTint="#4CAF50"
-            android:textColor="@android:color/white"
+            android:backgroundTint="?attr/colorPrimary"
+            android:textColor="?attr/colorOnPrimary"
             app:strokeWidth="0dp" />
 
     </LinearLayout>
@@ -63,7 +63,7 @@
         android:id="@+id/nav_view"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:background="?android:attr/windowBackground"
+        android:background="?attr/colorPrimaryContainer"
         app:menu="@menu/bottom_nav_menu"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

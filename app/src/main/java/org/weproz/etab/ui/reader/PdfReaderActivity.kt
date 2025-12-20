@@ -19,9 +19,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.weproz.etab.R
-import org.weproz.etab.data.local.AppDatabase
-import org.weproz.etab.data.local.HighlightEntity
-import org.weproz.etab.data.local.WordDatabase
+import org.weproz.etab.data.local.database.AppDatabase
+import org.weproz.etab.data.local.entity.HighlightEntity
+import org.weproz.etab.data.local.database.WordDatabase
 import org.weproz.etab.databinding.ActivityPdfReaderBinding
 import org.weproz.etab.ui.search.DefinitionDialogFragment
 import java.io.File

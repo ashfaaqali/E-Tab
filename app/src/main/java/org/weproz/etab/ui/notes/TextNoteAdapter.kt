@@ -5,7 +5,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import org.weproz.etab.data.local.TextNoteEntity
+import org.weproz.etab.data.local.entity.TextNoteEntity
 import org.weproz.etab.databinding.ItemTextNoteBinding
 
 class TextNoteAdapter(

@@ -21,9 +21,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.weproz.etab.R
-import org.weproz.etab.data.local.BookEntity
-import org.weproz.etab.data.local.BookType
-import org.weproz.etab.data.local.DictionaryEntry
+import org.weproz.etab.data.local.entity.BookEntity
+import org.weproz.etab.data.local.entity.BookType
+import org.weproz.etab.data.local.entity.DictionaryEntry
 import java.io.File
 import java.io.FileInputStream
 

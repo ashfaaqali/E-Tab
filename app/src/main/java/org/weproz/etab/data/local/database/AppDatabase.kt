@@ -1,4 +1,4 @@
-package org.weproz.etab.data.local
+package org.weproz.etab.data.local.database
 
 import android.content.Context
 import androidx.room.Database
@@ -6,10 +6,15 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
-import androidx.sqlite.db.SupportSQLiteDatabase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import org.weproz.etab.data.local.dao.BookDao
+import org.weproz.etab.data.local.dao.HighlightDao
+import org.weproz.etab.data.local.dao.TextNoteDao
+import org.weproz.etab.data.local.dao.WhiteboardDao
+import org.weproz.etab.data.local.entity.BookEntity
+import org.weproz.etab.data.local.entity.BookType
+import org.weproz.etab.data.local.entity.HighlightEntity
+import org.weproz.etab.data.local.entity.TextNoteEntity
+import org.weproz.etab.data.local.entity.WhiteboardEntity
 
 /**
  * Type converters for Room to handle custom types
@@ -53,4 +58,3 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
-

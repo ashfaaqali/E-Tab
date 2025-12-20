@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import org.weproz.etab.data.local.AppDatabase
-import org.weproz.etab.data.local.WhiteboardEntity
+import org.weproz.etab.data.local.database.AppDatabase
+import org.weproz.etab.data.local.entity.WhiteboardEntity
 import org.weproz.etab.data.repository.NoteRepository
 import javax.inject.Inject
 

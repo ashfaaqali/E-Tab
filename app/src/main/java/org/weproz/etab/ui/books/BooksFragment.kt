@@ -21,8 +21,8 @@ import androidx.recyclerview.widget.GridLayoutManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.weproz.etab.data.local.BookEntity
-import org.weproz.etab.data.local.BookType
+import org.weproz.etab.data.local.entity.BookEntity
+import org.weproz.etab.data.local.entity.BookType
 import org.weproz.etab.databinding.FragmentBooksBinding
 import org.weproz.etab.ui.reader.PdfReaderActivity
 import org.weproz.etab.ui.reader.ReaderActivity

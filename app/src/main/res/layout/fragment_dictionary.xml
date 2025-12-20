@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@android:color/white"
+    android:background="?attr/colorSurface"
     android:padding="16dp">
 
     <LinearLayout
@@ -62,7 +62,7 @@
         android:minHeight="120dp"
         app:cardCornerRadius="18dp"
         app:cardElevation="0dp"
-        app:cardBackgroundColor="#E3F2FD">
+        app:cardBackgroundColor="?attr/colorPrimaryContainer">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -76,7 +76,7 @@
                 android:layout_height="wrap_content"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:textColor="#1565C0" />
+                android:textColor="?attr/colorOnPrimaryContainer" />
 
             <TextView
                 android:id="@+id/text_type_1"
@@ -85,7 +85,7 @@
                 android:layout_marginTop="4dp"
                 android:textStyle="italic"
                 android:textSize="13sp"
-                android:textColor="#1976D2" />
+                android:textColor="?attr/colorOnPrimaryContainer" />
 
             <TextView
                 android:id="@+id/text_definition_1"
@@ -93,7 +93,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:textSize="15sp"
-                android:textColor="#424242"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:lineSpacingMultiplier="1.3" />
 
         </LinearLayout>
@@ -108,7 +108,7 @@
         android:minHeight="120dp"
         app:cardCornerRadius="18dp"
         app:cardElevation="0dp"
-        app:cardBackgroundColor="#F3E5F5">
+        app:cardBackgroundColor="?attr/colorSecondaryContainer">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -122,7 +122,7 @@
                 android:layout_height="wrap_content"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:textColor="#7B1FA2" />
+                android:textColor="?attr/colorOnSecondaryContainer" />
 
             <TextView
                 android:id="@+id/text_type_2"
@@ -131,7 +131,7 @@
                 android:layout_marginTop="4dp"
                 android:textStyle="italic"
                 android:textSize="13sp"
-                android:textColor="#8E24AA" />
+                android:textColor="?attr/colorOnSecondaryContainer" />
 
             <TextView
                 android:id="@+id/text_definition_2"
@@ -139,7 +139,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:textSize="15sp"
-                android:textColor="#424242"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:lineSpacingMultiplier="1.3" />
 
         </LinearLayout>
@@ -153,7 +153,7 @@
         android:minHeight="120dp"
         app:cardCornerRadius="18dp"
         app:cardElevation="0dp"
-        app:cardBackgroundColor="#E8F5E9">
+        app:cardBackgroundColor="?attr/colorTertiaryContainer">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -167,7 +167,7 @@
                 android:layout_height="wrap_content"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:textColor="#2E7D32" />
+                android:textColor="?attr/colorOnTertiaryContainer" />
 
             <TextView
                 android:id="@+id/text_type_3"
@@ -176,7 +176,7 @@
                 android:layout_marginTop="4dp"
                 android:textStyle="italic"
                 android:textSize="13sp"
-                android:textColor="#388E3C" />
+                android:textColor="?attr/colorOnTertiaryContainer" />
 
             <TextView
                 android:id="@+id/text_definition_3"
@@ -184,7 +184,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:textSize="15sp"
-                android:textColor="#424242"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:lineSpacingMultiplier="1.3" />
 
         </LinearLayout>

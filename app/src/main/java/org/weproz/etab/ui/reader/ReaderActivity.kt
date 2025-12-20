@@ -1,6 +1,7 @@
 package org.weproz.etab.ui.reader
 
 import android.annotation.SuppressLint
+import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.webkit.JavascriptInterface
@@ -15,23 +16,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import nl.siegmann.epublib.epub.EpubReader
 import org.weproz.etab.R
-import org.weproz.etab.data.local.AppDatabase
-import org.weproz.etab.data.local.HighlightEntity
+import org.weproz.etab.data.local.database.AppDatabase
+import org.weproz.etab.data.local.entity.HighlightEntity
+import org.weproz.etab.data.model.whiteboard.DrawAction
 import org.weproz.etab.databinding.ActivityReaderBinding
 import org.weproz.etab.ui.search.DefinitionDialogFragment
 import java.io.FileInputStream
-import android.widget.PopupWindow
-import android.view.LayoutInflater
-import android.view.ViewGroup
-import android.graphics.Color
-import android.widget.SeekBar
-import org.weproz.etab.ui.custom.CustomDialog
-import org.weproz.etab.ui.notes.whiteboard.WhiteboardView
-import org.weproz.etab.data.model.whiteboard.DrawAction
-import org.weproz.etab.data.serializer.WhiteboardSerializer
-import org.weproz.etab.data.model.whiteboard.ParsedPage
-import org.weproz.etab.data.model.whiteboard.GridType
-import java.io.File
 
 class ReaderActivity : AppCompatActivity() {
 
@@ -519,7 +509,7 @@ class ReaderActivity : AppCompatActivity() {
         @JavascriptInterface
         fun onDefine(word: String) {
             lifecycleScope.launch(Dispatchers.Main) {
-                val dao = org.weproz.etab.data.local.WordDatabase.getDatabase(this@ReaderActivity)
+                val dao = org.weproz.etab.data.local.database.WordDatabase.getDatabase(this@ReaderActivity)
                     .wordDao()
                 // Try exact match first, then clean up
                 val cleanWord = word.replace(Regex("[^a-zA-Z]"), "")

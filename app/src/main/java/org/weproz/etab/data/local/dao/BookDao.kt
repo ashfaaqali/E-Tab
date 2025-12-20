@@ -1,10 +1,11 @@
-package org.weproz.etab.data.local
+package org.weproz.etab.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
+import org.weproz.etab.data.local.entity.BookEntity
 
 @Dao
 interface BookDao {

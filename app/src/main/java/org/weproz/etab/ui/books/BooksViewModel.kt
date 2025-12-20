@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import org.weproz.etab.data.local.AppDatabase
-import org.weproz.etab.data.local.BookEntity
-import org.weproz.etab.data.local.DictionaryEntry
-import org.weproz.etab.data.local.WordDatabase
+import org.weproz.etab.data.local.database.AppDatabase
+import org.weproz.etab.data.local.entity.BookEntity
+import org.weproz.etab.data.local.entity.DictionaryEntry
+import org.weproz.etab.data.local.database.WordDatabase
 import org.weproz.etab.data.repository.BookRepository
 import org.weproz.etab.data.repository.DictionaryRepository
 import java.io.File

@@ -22,8 +22,8 @@ class ETabSearchBar @JvmOverloads constructor(
         editText = findViewById(R.id.et_search)
         radius = 1000f
         elevation = 0f
-        strokeWidth = 1
-        strokeColor = context.getColor(R.color.bottom_bar_content)
+//        strokeWidth = 0
+//        strokeColor = context.getColor(R.color.bottom_bar_content)
         context.theme.obtainStyledAttributes(
             attrs,
             R.styleable.CustomSearchBar,

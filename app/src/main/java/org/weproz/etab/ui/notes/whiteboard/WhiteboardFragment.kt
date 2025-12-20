@@ -15,8 +15,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.weproz.etab.R
-import org.weproz.etab.data.local.AppDatabase
-import org.weproz.etab.data.local.WhiteboardEntity
+import org.weproz.etab.data.local.database.AppDatabase
+import org.weproz.etab.data.local.entity.WhiteboardEntity
 import org.weproz.etab.data.model.whiteboard.GridType
 import org.weproz.etab.data.model.whiteboard.ParsedPage
 import org.weproz.etab.data.serializer.WhiteboardSerializer

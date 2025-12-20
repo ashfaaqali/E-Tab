@@ -9,32 +9,32 @@
 
     <!-- Book Spine -->
     <path
-        android:fillColor="@color/purple_40"
+        android:fillColor="@color/md_theme_primary"
         android:pathData="M28,24h6v60H28z" />
 
     <!-- Book Cover -->
     <path
-        android:fillColor="@color/purple_40"
+        android:fillColor="@color/md_theme_primary"
         android:pathData="M34,24h40c3,0 5,2 5,5v50c0,3 -2,5 -5,5H34z" />
 
     <!-- Pages -->
     <path
-        android:fillColor="@color/white"
+        android:fillColor="@color/md_theme_onPrimary"
         android:pathData="M36,27h36v54H36z" />
 
     <!-- Text Content -->
     <path
-        android:fillColor="@color/on_surface_light"
+        android:fillColor="@color/md_theme_onSurface"
         android:pathData="M40,36h24v3h-24z" />
     <path
-        android:fillColor="@color/on_surface_light"
+        android:fillColor="@color/md_theme_onSurface"
         android:pathData="M40,44h24v3h-24z" />
     <path
-        android:fillColor="@color/on_surface_light"
+        android:fillColor="@color/md_theme_onSurface"
         android:pathData="M40,52h16v3h-16z" />
 
     <!-- Bookmark Ribbon -->
     <path
-        android:fillColor="@color/purple_80"
+        android:fillColor="@color/md_theme_tertiary"
         android:pathData="M66,27h6v14l-3,-3l-3,3z" />
 </vector>

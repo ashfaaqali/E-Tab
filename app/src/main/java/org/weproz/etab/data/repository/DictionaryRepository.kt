@@ -1,7 +1,7 @@
 package org.weproz.etab.data.repository
 
-import org.weproz.etab.data.local.DictionaryEntry
-import org.weproz.etab.data.local.WordDatabase
+import org.weproz.etab.data.local.entity.DictionaryEntry
+import org.weproz.etab.data.local.database.WordDatabase
 import javax.inject.Inject
 import javax.inject.Singleton
 

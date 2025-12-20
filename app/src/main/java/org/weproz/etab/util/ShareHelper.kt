@@ -12,7 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import nl.siegmann.epublib.epub.EpubReader
-import org.weproz.etab.data.local.TextNoteEntity
+import org.weproz.etab.data.local.entity.TextNoteEntity
 import org.weproz.etab.data.model.whiteboard.DrawAction
 import org.weproz.etab.data.model.whiteboard.ParsedPage
 import org.weproz.etab.data.serializer.WhiteboardSerializer

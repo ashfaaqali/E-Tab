@@ -6,7 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.weproz.etab.data.local.WhiteboardEntity
+import org.weproz.etab.data.local.entity.WhiteboardEntity
 import org.weproz.etab.data.repository.NoteRepository
 import org.weproz.etab.data.model.whiteboard.ParsedPage
 import java.io.File
