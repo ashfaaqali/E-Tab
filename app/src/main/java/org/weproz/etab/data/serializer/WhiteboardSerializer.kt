@@ -1,4 +1,4 @@
-// Moved to org.weproz.etab.data.serializer.WhiteboardSerializer
+package org.weproz.etab.data.serializer
 
 import android.graphics.Path
 import com.google.gson.Gson
@@ -11,7 +11,7 @@ import org.weproz.etab.data.model.whiteboard.SerializablePage
 import org.weproz.etab.data.model.whiteboard.SerializableStroke
 import org.weproz.etab.data.model.whiteboard.SerializableText
 
-private object WhiteboardSerializerDeprecated {
+object WhiteboardSerializer {
     private val gson = Gson()
 
     fun serialize(pages: List<ParsedPage>): String {
@@ -83,5 +83,3 @@ private object WhiteboardSerializerDeprecated {
         return ParsedPage(actions, gridType)
     }
 }
-
-

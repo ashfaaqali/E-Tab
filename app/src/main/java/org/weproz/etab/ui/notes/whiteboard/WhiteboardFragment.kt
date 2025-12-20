@@ -17,6 +17,9 @@ import kotlinx.coroutines.withContext
 import org.weproz.etab.R
 import org.weproz.etab.data.local.AppDatabase
 import org.weproz.etab.data.local.WhiteboardEntity
+import org.weproz.etab.data.model.whiteboard.GridType
+import org.weproz.etab.data.model.whiteboard.ParsedPage
+import org.weproz.etab.data.serializer.WhiteboardSerializer
 import org.weproz.etab.databinding.FragmentWhiteboardEditorBinding
 import org.weproz.etab.ui.custom.CustomDialog
 import java.io.File
@@ -98,6 +101,10 @@ class WhiteboardFragment : Fragment() {
 
     private fun setupTools() {
         binding.btnToolBrush.setOnClickListener { showBrushSettingsDialog() }
+        binding.btnToolLasso.setOnClickListener { 
+            binding.whiteboardView.setTool(WhiteboardView.ToolType.SELECTOR)
+            android.widget.Toast.makeText(requireContext(), "Lasso Tool Selected", android.widget.Toast.LENGTH_SHORT).show()
+        }
         binding.btnToolText.setOnClickListener { showAddTextDialog() }
         binding.btnToolGrid.setOnClickListener { showGridTypeDialog() }
         binding.btnToolUndo.setOnClickListener { binding.whiteboardView.undo() }

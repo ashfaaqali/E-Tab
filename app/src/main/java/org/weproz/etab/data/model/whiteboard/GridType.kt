@@ -1,4 +1,4 @@
-package org.weproz.etab.ui.notes.whiteboard
+package org.weproz.etab.data.model.whiteboard
 
 enum class GridType {
     NONE,

@@ -13,8 +13,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import nl.siegmann.epublib.epub.EpubReader
 import org.weproz.etab.data.local.TextNoteEntity
-import org.weproz.etab.ui.notes.whiteboard.DrawAction
-import org.weproz.etab.ui.notes.whiteboard.WhiteboardSerializer
+import org.weproz.etab.data.model.whiteboard.DrawAction
+import org.weproz.etab.data.model.whiteboard.ParsedPage
+import org.weproz.etab.data.serializer.WhiteboardSerializer
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream

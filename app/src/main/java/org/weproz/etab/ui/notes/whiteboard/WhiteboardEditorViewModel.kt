@@ -8,6 +8,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.weproz.etab.data.local.WhiteboardEntity
 import org.weproz.etab.data.repository.NoteRepository
+import org.weproz.etab.data.model.whiteboard.ParsedPage
 import java.io.File
 import java.io.FileOutputStream
 import javax.inject.Inject

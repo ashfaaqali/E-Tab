@@ -18,6 +18,7 @@ import androidx.core.view.ViewCompat
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import org.weproz.etab.data.serializer.WhiteboardSerializer
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.weproz.etab.R
@@ -28,6 +29,8 @@ import androidx.core.view.size
 
 import android.widget.PopupWindow
 import android.view.ViewGroup
+import org.weproz.etab.data.model.whiteboard.GridType
+import org.weproz.etab.data.model.whiteboard.ParsedPage
 import org.weproz.etab.ui.custom.CustomDialog
 
 @AndroidEntryPoint

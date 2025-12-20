@@ -27,10 +27,10 @@ import android.graphics.Color
 import android.widget.SeekBar
 import org.weproz.etab.ui.custom.CustomDialog
 import org.weproz.etab.ui.notes.whiteboard.WhiteboardView
-import org.weproz.etab.ui.notes.whiteboard.DrawAction
-import org.weproz.etab.ui.notes.whiteboard.WhiteboardSerializer
-import org.weproz.etab.ui.notes.whiteboard.ParsedPage
-import org.weproz.etab.ui.notes.whiteboard.GridType
+import org.weproz.etab.data.model.whiteboard.DrawAction
+import org.weproz.etab.data.serializer.WhiteboardSerializer
+import org.weproz.etab.data.model.whiteboard.ParsedPage
+import org.weproz.etab.data.model.whiteboard.GridType
 import java.io.File
 
 class ReaderActivity : AppCompatActivity() {
@@ -40,6 +40,7 @@ class ReaderActivity : AppCompatActivity() {
     private var currentChapterIndex = 0
     private var bookPath: String? = null
     private var isFirstLoad = true
+    private lateinit var annotationRepository: org.weproz.etab.data.repository.AnnotationRepository
     
     // Annotation Persistence
     private val chapterAnnotations = mutableMapOf<Int, List<DrawAction>>()
@@ -49,6 +50,8 @@ class ReaderActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        annotationRepository = org.weproz.etab.data.repository.AnnotationRepository(getExternalFilesDir("annotations")!!)
 
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
@@ -112,38 +115,20 @@ class ReaderActivity : AppCompatActivity() {
 
         // Annotation Controls
         binding.annotationView.isTransparentBackground = true
+        binding.whiteboardToolbar.attachTo(binding.annotationView)
         
         binding.btnAnnotateToggle.setOnClickListener {
-            val isVisible = binding.layoutTools.visibility == View.VISIBLE
+            val isVisible = binding.whiteboardToolbar.visibility == View.VISIBLE
             if (isVisible) {
-                binding.layoutTools.visibility = View.GONE
+                binding.whiteboardToolbar.visibility = View.GONE
                 binding.annotationView.visibility = View.GONE
                 binding.btnAnnotateToggle.setColorFilter(Color.WHITE)
             } else {
-                binding.layoutTools.visibility = View.VISIBLE
+                binding.whiteboardToolbar.visibility = View.VISIBLE
                 binding.annotationView.visibility = View.VISIBLE
                 binding.btnAnnotateToggle.setColorFilter(Color.YELLOW)
-                
-                updateActiveToolUI(binding.btnToolPen)
-                binding.annotationView.setTool(WhiteboardView.ToolType.PEN)
             }
         }
-        
-        binding.btnToolPen.setOnClickListener {
-            binding.annotationView.setTool(WhiteboardView.ToolType.PEN)
-            updateActiveToolUI(it as android.widget.ImageButton)
-            showPenSettingsPopup(it)
-        }
-        
-        binding.btnToolEraser.setOnClickListener {
-            binding.annotationView.setTool(WhiteboardView.ToolType.ERASER)
-            updateActiveToolUI(it as android.widget.ImageButton)
-            showEraserSettingsPopup(it)
-        }
-        
-        binding.btnToolUndo.setOnClickListener { binding.annotationView.undo() }
-        binding.btnToolRedo.setOnClickListener { binding.annotationView.redo() }
-        binding.btnToolClear.setOnClickListener { showClearConfirmationDialog() }
 
         binding.btnOverlayPrev.setOnClickListener {
             prevChapter()
@@ -158,113 +143,6 @@ class ReaderActivity : AppCompatActivity() {
         binding.btnNotesToggle.setOnClickListener {
             toggleSplitView()
         }
-    }
-
-    private fun updateActiveToolUI(activeButton: android.widget.ImageButton) {
-        val typedValue = android.util.TypedValue()
-        theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)
-        val backgroundResource = typedValue.resourceId
-        
-        binding.btnToolPen.setBackgroundResource(backgroundResource)
-        binding.btnToolEraser.setBackgroundResource(backgroundResource)
-        
-        activeButton.setBackgroundResource(R.drawable.bg_toolbar_tool)
-    }
-
-    private fun showPenSettingsPopup(anchor: android.view.View) {
-        val view = LayoutInflater.from(this).inflate(R.layout.popup_pen_settings, null)
-        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
-        popup.elevation = 10f
-        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-        
-        val containerColors = view.findViewById<android.widget.LinearLayout>(R.id.container_colors)
-        val seekSize = view.findViewById<SeekBar>(R.id.seek_size)
-        val groupType = view.findViewById<android.widget.RadioGroup>(R.id.group_pen_type)
-        
-        // Pen Type
-        if (binding.annotationView.isHighlighter) {
-            groupType.check(R.id.radio_highlighter)
-        } else {
-            groupType.check(R.id.radio_pen)
-        }
-        
-        groupType.setOnCheckedChangeListener { _, checkedId ->
-            binding.annotationView.isHighlighter = (checkedId == R.id.radio_highlighter)
-        }
-        
-        seekSize.progress = binding.annotationView.getStrokeWidth().toInt()
-        seekSize.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
-             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                 val size = progress.coerceAtLeast(1).toFloat()
-                 binding.annotationView.setStrokeWidthGeneric(size)
-             }
-             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-        
-        // Colors
-        val colors = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.CYAN, Color.YELLOW)
-        val currentColor = binding.annotationView.drawColor
-        
-        for (color in colors) {
-             val colorView = android.view.View(this)
-             val params = android.widget.LinearLayout.LayoutParams(60, 60)
-             params.setMargins(8, 0, 8, 0)
-             colorView.layoutParams = params
-             
-             val shape = android.graphics.drawable.GradientDrawable()
-             shape.shape = android.graphics.drawable.GradientDrawable.OVAL
-             shape.setColor(color)
-             
-             if (color == currentColor) {
-                 shape.setStroke(6, Color.DKGRAY)
-             } else {
-                 shape.setStroke(2, Color.LTGRAY)
-             }
-             
-             colorView.background = shape
-             
-             colorView.setOnClickListener {
-                 binding.annotationView.drawColor = color
-                 popup.dismiss()
-             }
-             containerColors.addView(colorView)
-        }
-        
-        popup.showAsDropDown(anchor, 0, 10)
-    }
-    
-    private fun showEraserSettingsPopup(anchor: android.view.View) {
-        val view = LayoutInflater.from(this).inflate(R.layout.popup_eraser_settings, null)
-        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
-        popup.elevation = 10f
-        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-        
-        val seekSize = view.findViewById<SeekBar>(R.id.seek_size)
-        seekSize.progress = binding.annotationView.getStrokeWidth().toInt()
-        
-        seekSize.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
-             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                 val size = progress.coerceAtLeast(1).toFloat()
-                 binding.annotationView.setStrokeWidthGeneric(size)
-             }
-             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-        
-        popup.showAsDropDown(anchor, 0, 10)
-    }
-
-    private fun showClearConfirmationDialog() {
-        CustomDialog(this)
-            .setTitle("Clear Annotations")
-            .setMessage("Are you sure you want to clear all annotations?")
-            .setPositiveButton("Clear") { dialog ->
-                binding.annotationView.clear()
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel")
-            .show()
     }
 
     private fun showNavigation() {
@@ -590,410 +468,7 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun injectCustomContent(html: String): String {
-        val js = """
-            <style>
-                #custom-menu {
-                    position: absolute;
-                    background: #333;
-                    color: white;
-                    padding: 8px;
-                    border-radius: 4px;
-                    display: none;
-                    z-index: 1000;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                }
-                #custom-menu button {
-                    background: transparent;
-                    border: none;
-                    color: white;
-                    padding: 4px 8px;
-                    font-size: 14px;
-                }
-                .separator {
-                    width: 1px; 
-                    height: 16px; 
-                    background: #555; 
-                    display: inline-block; 
-                    vertical-align: middle; 
-                    margin: 0 4px;
-                }
-                .highlighted {
-                    background-color: yellow;
-                }
-            </style>
-            <div id="custom-menu">
-                <button id="btn-define" onclick="defineWord()">Define</button>
-                <div class="separator"></div>
-                <button id="btn-highlight" onclick="highlightText()">Highlight</button>
-                <div class="separator"></div>
-                <button id="btn-copy" onclick="copyText()">Copy</button>
-                <button id="btn-remove" onclick="removeHighlight()" style="display:none">Remove Highlight</button>
-            </div>
-            <script>
-                var selectedText = "";
-                var selectionRange = null;
-                var clickedHighlight = null;
-
-                function resetMenuButtons() {
-                    document.getElementById('btn-define').style.display = 'inline-block';
-                    document.getElementById('btn-highlight').style.display = 'inline-block';
-                    document.getElementById('btn-copy').style.display = 'inline-block';
-                    var separators = document.getElementsByClassName('separator');
-                    for(var i=0; i<separators.length; i++) separators[i].style.display = 'inline-block';
-                    document.getElementById('btn-remove').style.display = 'none';
-                }
-
-                document.addEventListener('selectionchange', function() {
-                    var selection = window.getSelection();
-                    var menu = document.getElementById('custom-menu');
-                    
-                    if (selection.toString().length > 0) {
-                        selectedText = selection.toString();
-                        selectionRange = selection.getRangeAt(0);
-                        
-                        // Check if selection is inside a highlight OR contains a highlight
-                        var isHighlighted = false;
-                        
-                        // 1. Check if selection is inside a highlight (ancestor check)
-                        var parent = selectionRange.commonAncestorContainer;
-                        if (parent.nodeType === 3) { // Text node
-                            parent = parent.parentNode;
-                        }
-                        if (parent.classList.contains('highlighted')) {
-                            isHighlighted = true;
-                            clickedHighlight = parent;
-                        }
-                        
-                        // 2. Check if selection contains any highlighted elements (descendant check)
-                        if (!isHighlighted) {
-                            var div = document.createElement('div');
-                            div.appendChild(selectionRange.cloneContents());
-                            if (div.querySelector('.highlighted')) {
-                                isHighlighted = true;
-                                clickedHighlight = null; // Will need to find it during removal
-                            }
-                        }
-                        
-                        if (isHighlighted) {
-                            // Show Define, Remove Highlight, Copy
-                            document.getElementById('btn-define').style.display = 'inline-block';
-                            document.getElementById('btn-highlight').style.display = 'none';
-                            document.getElementById('btn-copy').style.display = 'inline-block';
-                            document.getElementById('btn-remove').style.display = 'inline-block';
-                            
-                            // Ensure separators are visible
-                            var separators = document.getElementsByClassName('separator');
-                            for(var i=0; i<separators.length; i++) separators[i].style.display = 'inline-block';
-                        } else {
-                            // Show Define, Highlight, Copy
-                            resetMenuButtons();
-                        }
-                        
-                        var rect = selectionRange.getBoundingClientRect();
-                        var scrollTop = window.scrollY || document.documentElement.scrollTop;
-                        var scrollLeft = window.scrollX || document.documentElement.scrollLeft;
-                        
-                        menu.style.display = 'block';
-                        var menuWidth = menu.offsetWidth;
-                        var menuHeight = menu.offsetHeight;
-                        
-                        var top = scrollTop + rect.top - menuHeight - 10;
-                        var left = scrollLeft + rect.left + (rect.width / 2) - (menuWidth / 2);
-                        
-                        if (top < scrollTop) top = scrollTop + rect.bottom + 10;
-                        if (left < 0) left = 10;
-                        if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
-                        
-                        menu.style.top = top + 'px';
-                        menu.style.left = left + 'px';
-                    } else {
-                        menu.style.display = 'none';
-                    }
-                });
-
-                document.addEventListener('click', function(e) {
-                    var menu = document.getElementById('custom-menu');
-                    
-                    // 1. Check if clicked on menu or inside menu
-                    if (menu.contains(e.target)) {
-                        return; // Let button handlers work
-                    }
-
-                    // 2. Check if clicked on a highlight
-                    if (e.target.classList.contains('highlighted')) {
-                        clickedHighlight = e.target;
-                        selectedText = e.target.textContent;
-                        
-                        // Show Define, Remove Highlight, Copy
-                        document.getElementById('btn-define').style.display = 'inline-block';
-                        document.getElementById('btn-highlight').style.display = 'none';
-                        document.getElementById('btn-copy').style.display = 'inline-block';
-                        document.getElementById('btn-remove').style.display = 'inline-block';
-                        
-                        var separators = document.getElementsByClassName('separator');
-                        for(var i=0; i<separators.length; i++) separators[i].style.display = 'inline-block';
-                        
-                        menu.style.display = 'block';
-                        
-                        var rect = e.target.getBoundingClientRect();
-                        var scrollTop = window.scrollY || document.documentElement.scrollTop;
-                        var scrollLeft = window.scrollX || document.documentElement.scrollLeft;
-                        
-                        // Force layout to get correct dimensions
-                        var menuWidth = menu.offsetWidth; 
-                        if (menuWidth === 0) menuWidth = 150; // Fallback
-                        
-                        var top = scrollTop + rect.top - menu.offsetHeight - 10;
-                        var left = scrollLeft + rect.left + (rect.width / 2) - (menuWidth / 2);
-                        
-                        if (top < scrollTop) top = scrollTop + rect.bottom + 10;
-                        if (left < 0) left = 10;
-                        if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
-                        
-                        menu.style.top = top + 'px';
-                        menu.style.left = left + 'px';
-                        
-                        e.stopPropagation();
-                        return;
-                    } 
-                    
-                    // 3. Clicked elsewhere
-                    
-                    // If menu was visible, hide it and don't navigate
-                    if (menu.style.display === 'block') {
-                         menu.style.display = 'none';
-                         resetMenuButtons();
-                         return;
-                    }
-                    
-                    // 4. Navigation Logic
-                    var width = window.innerWidth;
-                    var x = e.clientX;
-                    
-                    // Only navigate if not selecting text (selection usually implies drag, but click is click)
-                    // If selection is non-empty, we probably shouldn't navigate?
-                    // But selectionchange handles showing the menu.
-                    // If I click to clear selection, selection becomes empty.
-                    
-                    if (window.getSelection().toString().length > 0) {
-                        return;
-                    }
-                    
-                    if (x < width * 0.25) {
-                        Android.onPrevPage();
-                    } else if (x > width * 0.75) {
-                        Android.onNextPage();
-                    } else {
-                        Android.onToggleControls();
-                    }
-                });
-
-                function defineWord() {
-                    Android.onDefine(selectedText.trim());
-                    document.getElementById('custom-menu').style.display = 'none';
-                }
-
-                function copyText() {
-                    Android.onCopy(selectedText);
-                    document.getElementById('custom-menu').style.display = 'none';
-                }
-
-                function removeHighlight() {
-                    var selection = window.getSelection();
-                    
-                    // Case 1: Selection-based removal (Partial or Full overlap)
-                    if (selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
-                        var range = selection.getRangeAt(0);
-                        
-                        // Find all highlights intersecting the range
-                        var highlights = document.querySelectorAll('.highlighted');
-                        var highlightsToProcess = [];
-                        
-                        for (var i = 0; i < highlights.length; i++) {
-                            if (range.intersectsNode(highlights[i])) {
-                                highlightsToProcess.push(highlights[i]);
-                            }
-                        }
-                        
-                        highlightsToProcess.forEach(function(el) {
-                            // 1. Remove old from DB
-                            var oldText = el.textContent;
-                            var oldRangeData = el.getAttribute('data-range');
-                            Android.onRemoveHighlight(oldText, oldRangeData);
-                            
-                            // 2. Calculate split points
-                            var fullText = el.textContent;
-                            var elRange = document.createRange();
-                            elRange.selectNodeContents(el);
-                            
-                            var startOffset = 0;
-                            var endOffset = fullText.length;
-                            
-                            // Check start
-                            if (range.compareBoundaryPoints(Range.START_TO_START, elRange) > 0) {
-                                // Selection starts inside this element
-                                // We assume the highlight span contains a single text node
-                                if (el.firstChild && el.firstChild.nodeType === 3) {
-                                     // If selection starts in this text node
-                                     if (range.startContainer === el.firstChild) {
-                                         startOffset = range.startOffset;
-                                     }
-                                }
-                            }
-                            
-                            // Check end
-                            if (range.compareBoundaryPoints(Range.END_TO_END, elRange) < 0) {
-                                // Selection ends inside this element
-                                if (el.firstChild && el.firstChild.nodeType === 3) {
-                                     if (range.endContainer === el.firstChild) {
-                                         endOffset = range.endOffset;
-                                     }
-                                }
-                            }
-                            
-                            // 3. Create new nodes
-                            var fragment = document.createDocumentFragment();
-                            
-                            // Pre-fragment (Keep highlighted)
-                            if (startOffset > 0) {
-                                var span1 = document.createElement('span');
-                                span1.className = 'highlighted';
-                                span1.textContent = fullText.substring(0, startOffset);
-                                span1.setAttribute('data-needs-index', 'true');
-                                fragment.appendChild(span1);
-                            }
-                            
-                            // Middle-fragment (Remove highlight)
-                            var textNode = document.createTextNode(fullText.substring(startOffset, endOffset));
-                            fragment.appendChild(textNode);
-                            
-                            // Post-fragment (Keep highlighted)
-                            if (endOffset < fullText.length) {
-                                var span2 = document.createElement('span');
-                                span2.className = 'highlighted';
-                                span2.textContent = fullText.substring(endOffset);
-                                span2.setAttribute('data-needs-index', 'true');
-                                fragment.appendChild(span2);
-                            }
-                            
-                            el.parentNode.replaceChild(fragment, el);
-                        });
-                        
-                        // 4. Update DB for new fragments
-                        // We need to process them in document order to get correct indices
-                        var newHighlights = document.querySelectorAll('span[data-needs-index="true"]');
-                        newHighlights.forEach(function(span) {
-                            span.removeAttribute('data-needs-index');
-                            var text = span.textContent;
-                            
-                            // Calculate index
-                            var index = 0;
-                            var tempRange = document.createRange();
-                            tempRange.selectNodeContents(document.body);
-                            tempRange.setEndBefore(span);
-                            var precedingText = tempRange.toString();
-                            
-                            var count = 0;
-                            var pos = precedingText.indexOf(text);
-                            while (pos !== -1) {
-                                count++;
-                                pos = precedingText.indexOf(text, pos + 1);
-                            }
-                            index = count;
-                            
-                            span.setAttribute('data-range', index.toString());
-                            Android.onHighlight(text, index.toString());
-                        });
-                        
-                        selection.removeAllRanges();
-                    } 
-                    // Case 2: Click-based removal (No selection range, just a click on highlight)
-                    else if (clickedHighlight) {
-                        var text = clickedHighlight.textContent;
-                        var rangeData = clickedHighlight.getAttribute('data-range');
-                        
-                        Android.onRemoveHighlight(text, rangeData);
-                        
-                        var parent = clickedHighlight.parentNode;
-                        parent.replaceChild(document.createTextNode(text), clickedHighlight);
-                        parent.normalize();
-                        
-                        clickedHighlight = null;
-                    }
-                    
-                    document.getElementById('custom-menu').style.display = 'none';
-                    resetMenuButtons();
-                }
-
-                function highlightText() {
-                    if (selectionRange) {
-                        var index = 0;
-                        var tempRange = document.createRange();
-                        tempRange.selectNodeContents(document.body);
-                        tempRange.setEnd(selectionRange.startContainer, selectionRange.startOffset);
-                        var precedingText = tempRange.toString();
-                        
-                        var count = 0;
-                        var pos = precedingText.indexOf(selectedText);
-                        while (pos !== -1) {
-                            count++;
-                            pos = precedingText.indexOf(selectedText, pos + 1);
-                        }
-                        index = count;
-
-                        var span = document.createElement('span');
-                        span.className = 'highlighted';
-                        span.textContent = selectedText;
-                        span.setAttribute('data-range', index.toString());
-                        selectionRange.deleteContents();
-                        selectionRange.insertNode(span);
-                        
-                        Android.onHighlight(selectedText, index.toString());
-                        
-                        window.getSelection().removeAllRanges();
-                        document.getElementById('custom-menu').style.display = 'none';
-                    }
-                }
-                
-                function restoreHighlight(text, indexStr) {
-                    var targetIndex = parseInt(indexStr);
-                    if (isNaN(targetIndex)) targetIndex = 0;
-                    
-                    var walker = document.createTreeWalker(
-                        document.body,
-                        NodeFilter.SHOW_TEXT,
-                        null,
-                        false
-                    );
-
-                    var currentNode;
-                    var matchCount = 0;
-                    
-                    while (currentNode = walker.nextNode()) {
-                        var nodeValue = currentNode.nodeValue;
-                        var pos = nodeValue.indexOf(text);
-                        
-                        while (pos !== -1) {
-                            if (matchCount === targetIndex) {
-                                var range = document.createRange();
-                                range.setStart(currentNode, pos);
-                                range.setEnd(currentNode, pos + text.length);
-                                
-                                var span = document.createElement('span');
-                                span.className = 'highlighted';
-                                span.textContent = text;
-                                span.setAttribute('data-range', indexStr);
-                                range.deleteContents();
-                                range.insertNode(span);
-                                return;
-                            }
-                            matchCount++;
-                            pos = nodeValue.indexOf(text, pos + 1);
-                        }
-                    }
-                }
-            </script>
-        """
+        val js = org.weproz.etab.ui.reader.ReaderScriptUtils.EPUB_JS_INJECTION
         // Insert before </body>
         return html.replace("</body>", "$js</body>")
     }
@@ -1016,49 +491,28 @@ class ReaderActivity : AppCompatActivity() {
         }
     }
 
-    private fun getAnnotationsFile(): File {
-        val fileName = File(bookPath!!).name + ".annotations.json"
-        return File(getExternalFilesDir("annotations"), fileName)
-    }
-
     private fun loadAnnotations() {
-        try {
-            val file = getAnnotationsFile()
-            if (file.exists()) {
-                val json = file.readText()
-                val data = WhiteboardSerializer.deserialize(json)
-                
-                chapterAnnotations.clear()
-                data.pages.forEachIndexed { index, page ->
-                    chapterAnnotations[index] = page.actions
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        if (bookPath == null) return
+        val loaded = annotationRepository.loadAnnotations(bookPath!!)
+        chapterAnnotations.clear()
+        // Convert 1-based (repository) to 0-based (chapter index)
+        loaded.forEach { (page, actions) ->
+            chapterAnnotations[page - 1] = actions
         }
     }
 
     private fun saveAnnotations() {
-        try {
-            // Save current chapter first
-            chapterAnnotations[currentChapterIndex] = binding.annotationView.getPaths().toList()
-            
-            val pages = mutableListOf<ParsedPage>()
-            val maxChapter = chapterAnnotations.keys.maxOrNull() ?: 0
-            
-            for (i in 0..maxChapter) {
-                val actions = chapterAnnotations[i] ?: emptyList()
-                pages.add(ParsedPage(actions, GridType.NONE))
-            }
-            
-            val json = WhiteboardSerializer.serialize(pages)
-            val file = getAnnotationsFile()
-            file.parentFile?.mkdirs()
-            file.writeText(json)
-            
-        } catch (e: Exception) {
-            e.printStackTrace()
+        if (bookPath == null) return
+        // Save current chapter first
+        chapterAnnotations[currentChapterIndex] = binding.annotationView.getPaths().toList()
+        
+        // Convert 0-based (chapter index) to 1-based (repository)
+        val toSave = mutableMapOf<Int, List<DrawAction>>()
+        chapterAnnotations.forEach { (chapter, actions) ->
+            toSave[chapter + 1] = actions
         }
+        
+        annotationRepository.saveAnnotations(bookPath!!, toSave)
     }
 
     inner class WebAppInterface {

@@ -25,6 +25,16 @@
             app:tint="@color/toolbar_icon_tint"/>
 
         <ImageButton
+            android:id="@+id/btn_tool_lasso"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="4dp"
+            android:src="@drawable/ic_lasso"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="6dp"
+            app:tint="@color/toolbar_icon_tint"/>
+
+        <ImageButton
             android:id="@+id/btn_tool_undo"
             android:layout_width="36dp"
             android:layout_height="36dp"

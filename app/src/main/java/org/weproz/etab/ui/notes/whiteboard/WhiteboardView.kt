@@ -6,6 +6,8 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import org.weproz.etab.data.model.whiteboard.DrawAction
+import org.weproz.etab.data.model.whiteboard.GridType
 import org.weproz.etab.R
 import kotlin.math.abs
 
@@ -249,6 +251,16 @@ class WhiteboardView @JvmOverloads constructor(
             drawSelectionBox(canvas, textAction)
         }
         
+        // Draw Lasso
+        if (isLassoSelecting) {
+            canvas.drawPath(lassoPath, lassoPaint)
+        }
+        
+        // Draw Selection Bounds
+        selectionBounds?.let { rect ->
+            canvas.drawRect(rect, selectionPaint)
+        }
+        
         canvas.restoreToCount(saveCount) // Restore layer
         canvas.restore() // Restore zoom/pan
     }
@@ -305,6 +317,21 @@ class WhiteboardView @JvmOverloads constructor(
     private var dragOffsetX = 0f
     private var dragOffsetY = 0f
 
+    // Lasso
+    private val lassoPath = Path()
+    private val lassoPaint = Paint().apply {
+        color = Color.DKGRAY
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        pathEffect = DashPathEffect(floatArrayOf(20f, 10f), 0f)
+    }
+    private var isLassoSelecting = false
+    private val selectedStrokes = mutableListOf<DrawAction.Stroke>()
+    private var selectionBounds: RectF? = null
+    private var isDraggingSelection = false
+    private var lastDragX = 0f
+    private var lastDragY = 0f
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         scaleDetector.onTouchEvent(event)
         
@@ -325,6 +352,8 @@ class WhiteboardView @JvmOverloads constructor(
                 movingTextAction = null
             }
             isResizingText = false
+            isLassoSelecting = false
+            isDraggingSelection = false
             
              // Handle panning
             when (event.actionMasked) {
@@ -360,6 +389,26 @@ class WhiteboardView @JvmOverloads constructor(
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                if (currentTool == ToolType.SELECTOR) {
+                    // Check if inside existing selection
+                    if (selectionBounds != null && selectionBounds!!.contains(canvasX, canvasY)) {
+                        isDraggingSelection = true
+                        lastDragX = canvasX
+                        lastDragY = canvasY
+                        return true
+                    }
+                    
+                    // Start new Lasso
+                    selectedStrokes.clear()
+                    selectionBounds = null
+                    selectedTextAction = null // Clear text selection too
+                    isLassoSelecting = true
+                    lassoPath.reset()
+                    lassoPath.moveTo(canvasX, canvasY)
+                    invalidate()
+                    return true
+                }
+
                 // 1. Check Selection Handles/Body (Priority)
                 val currentSelection = selectedTextAction
                 if (currentSelection != null) {
@@ -433,7 +482,27 @@ class WhiteboardView @JvmOverloads constructor(
                 }
             }
             MotionEvent.ACTION_MOVE -> {
-                if (isResizingText && selectedTextAction != null) {
+                if (isDraggingSelection) {
+                    val dx = canvasX - lastDragX
+                    val dy = canvasY - lastDragY
+                    
+                    // Move strokes
+                    for (stroke in selectedStrokes) {
+                        stroke.path.offset(dx, dy)
+                        val newPoints = stroke.points.map { it.first + dx to it.second + dy }
+                        stroke.points = newPoints
+                    }
+                    
+                    // Update bounds
+                    selectionBounds?.offset(dx, dy)
+                    
+                    lastDragX = canvasX
+                    lastDragY = canvasY
+                    invalidate()
+                } else if (isLassoSelecting) {
+                    lassoPath.lineTo(canvasX, canvasY)
+                    invalidate()
+                } else if (isResizingText && selectedTextAction != null) {
                     val dy = canvasY - initialTouchY
                     val newSize = (initialTextSize + dy / 2).coerceIn(20f, 300f)
                     selectedTextAction!!.textSize = newSize
@@ -457,6 +526,17 @@ class WhiteboardView @JvmOverloads constructor(
                 }
             }
             MotionEvent.ACTION_UP -> {
+                if (isLassoSelecting) {
+                    isLassoSelecting = false
+                    lassoPath.close()
+                    findSelectedStrokes()
+                    lassoPath.reset()
+                    invalidate()
+                } else if (isDraggingSelection) {
+                    isDraggingSelection = false
+                    onActionCompleted?.invoke()
+                }
+                
                 isDraggingText = false
                 isResizingText = false
                 movingTextAction = null
@@ -598,6 +678,64 @@ class WhiteboardView @JvmOverloads constructor(
             }
             GridType.NONE -> {}
         }
+    }
+
+    private fun findSelectedStrokes() {
+        selectedStrokes.clear()
+        val lassoRegion = Region()
+        val rectF = RectF()
+        lassoPath.computeBounds(rectF, true)
+        lassoRegion.setPath(lassoPath, Region(rectF.left.toInt(), rectF.top.toInt(), rectF.right.toInt(), rectF.bottom.toInt()))
+        
+        for (action in paths) {
+            if (action is DrawAction.Stroke) {
+                // Check if any point of the stroke is inside the lasso
+                // Optimization: Check bounds first
+                val strokeBounds = RectF()
+                action.path.computeBounds(strokeBounds, true)
+                
+                if (RectF.intersects(rectF, strokeBounds)) {
+                    // Detailed check
+                    var isInside = false
+                    for (point in action.points) {
+                        if (lassoRegion.contains(point.first.toInt(), point.second.toInt())) {
+                            isInside = true
+                            break
+                        }
+                    }
+                    
+                    if (isInside) {
+                        selectedStrokes.add(action)
+                    }
+                }
+            }
+        }
+        
+        if (selectedStrokes.isNotEmpty()) {
+            calculateSelectionBounds()
+        } else {
+            selectionBounds = null
+        }
+    }
+
+    private fun calculateSelectionBounds() {
+        if (selectedStrokes.isEmpty()) {
+            selectionBounds = null
+            return
+        }
+        
+        val bounds = RectF()
+        bounds.set(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY)
+        
+        for (stroke in selectedStrokes) {
+            val strokeBounds = RectF()
+            stroke.path.computeBounds(strokeBounds, true)
+            bounds.union(strokeBounds)
+        }
+        
+        // Add padding
+        bounds.inset(-20f, -20f)
+        selectionBounds = bounds
     }
 
     inner class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener() {
