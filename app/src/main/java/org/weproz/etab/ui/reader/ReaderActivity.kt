@@ -63,7 +63,7 @@ class ReaderActivity : AppCompatActivity() {
 
         bookPath = intent.getStringExtra("book_path")
 
-        setupWebView()
+        setupWebView();
 
         if (bookPath != null) {
             loadAnnotations()
