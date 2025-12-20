@@ -15,6 +15,7 @@ import org.weproz.etab.data.local.DictionaryEntry
 import org.weproz.etab.data.local.WordDatabase
 import org.weproz.etab.data.repository.BookRepository
 import org.weproz.etab.data.repository.DictionaryRepository
+import java.io.File
 
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -22,15 +23,19 @@ import kotlinx.coroutines.flow.flow
 sealed class SearchItem {
     data class BookItem(val book: BookEntity) : SearchItem()
     data class DictionaryItem(val entry: DictionaryEntry) : SearchItem()
+    data class FolderItem(val path: String, val name: String, val count: Int) : SearchItem()
 }
 
 class BooksViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: BookRepository
     
-    // 0 = All, 1 = Favorites
+    // 0 = All, 1 = Favorites, 2 = Folders
     private val _currentTab = MutableStateFlow(0) 
     val currentTab = _currentTab.asStateFlow()
+
+    private val _currentFolder = MutableStateFlow<String?>(null)
+    val currentFolder = _currentFolder.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
@@ -48,29 +53,54 @@ class BooksViewModel(application: Application) : AndroidViewModel(application) {
         val booksFlow = combine(
             repository.allBooks, 
             repository.favoriteBooks, 
-            _currentTab
-        ) { all, favs, tab ->
-            if (tab == 1) favs else all
+            _currentTab,
+            _currentFolder
+        ) { all, favs, tab, folder ->
+            Triple(all, favs, Pair(tab, folder))
         }
 
         viewModelScope.launch {
             combine(
                 booksFlow,
                 _searchQuery
-            ) { books, query ->
-                Pair(books, query)
-            }.flatMapLatest { (books, query) ->
-                flow {
-                    if (query.isEmpty()) {
-                        emit(books.map { SearchItem.BookItem(it) })
-                    } else {
-                        // Filter books
-                        val filteredBooks = books.filter { 
-                            it.title.contains(query, ignoreCase = true) 
-                        }.map { SearchItem.BookItem(it) }
-                        
-                        emit(filteredBooks)
+            ) { (all, favs, state), query ->
+                val (tab, folder) = state
+                
+                if (query.isNotEmpty()) {
+                    // Search mode: Search across ALL books regardless of tab/folder
+                    val filteredBooks = all.filter { 
+                        it.title.contains(query, ignoreCase = true) 
+                    }.map { SearchItem.BookItem(it) }
+                    return@combine filteredBooks
+                }
+
+                when (tab) {
+                    0 -> { // All Books
+                        all.map { SearchItem.BookItem(it) }
                     }
+                    1 -> { // Favorites
+                        favs.map { SearchItem.BookItem(it) }
+                    }
+                    2 -> { // Folders
+                        if (folder == null) {
+                            // List Folders
+                            val folders = all.groupBy { File(it.path).parentFile?.absolutePath ?: "" }
+                                .filter { it.key.isNotEmpty() }
+                                .map { (path, books) ->
+                                    val name = File(path).name
+                                    SearchItem.FolderItem(path, name, books.size)
+                                }
+                                .sortedBy { it.name }
+                            folders
+                        } else {
+                            // List Books in Folder
+                            all.filter { 
+                                val parent = File(it.path).parentFile?.absolutePath
+                                parent == folder 
+                            }.map { SearchItem.BookItem(it) }
+                        }
+                    }
+                    else -> emptyList()
                 }
             }.collect {
                 _items.value = it
@@ -90,6 +120,19 @@ class BooksViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setTab(index: Int) {
         _currentTab.value = index
+        _currentFolder.value = null // Reset folder navigation when switching tabs
+    }
+
+    fun openFolder(path: String) {
+        _currentFolder.value = path
+    }
+
+    fun closeFolder(): Boolean {
+        if (_currentFolder.value != null) {
+            _currentFolder.value = null
+            return true
+        }
+        return false
     }
 
     fun toggleFavorite(book: BookEntity) {
@@ -107,11 +150,6 @@ class BooksViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteBook(book: BookEntity) {
         viewModelScope.launch {
             repository.deleteBook(book.path)
-            // Trigger sync to refresh list? 
-            // Repository flows should update automatically if DAO emits.
-            // But if we deleted file, we might want to ensure file system scan matches?
-            // "getAllBooks" is flow from DB, so deleting from DAO updates UI. 
-            // Correct.
         }
     }
 }

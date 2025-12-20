@@ -11,10 +11,13 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.findViewTreeLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.weproz.etab.R
@@ -28,71 +31,103 @@ class BookAdapter(
     private val onBookClick: (BookEntity) -> Unit,
     private val onFavoriteClick: (BookEntity) -> Unit,
     private val onBookLongClick: (BookEntity) -> Unit,
-    private val onDictionaryClick: (DictionaryEntry) -> Unit
-) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-
-    private var items: List<SearchItem> = emptyList()
+    private val onDictionaryClick: (DictionaryEntry) -> Unit,
+    private val onFolderClick: (String) -> Unit
+) : ListAdapter<SearchItem, RecyclerView.ViewHolder>(ItemDiffCallback()) {
 
     companion object {
         private const val TYPE_BOOK = 0
         private const val TYPE_DICTIONARY = 1
+        private const val TYPE_FOLDER = 2
         private val coverCache: LruCache<String, Bitmap> = LruCache(50)
-    }
-
-    fun submitList(newItems: List<SearchItem>) {
-        val diffCallback = ItemDiffCallback(items, newItems)
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
-        items = newItems
-        diffResult.dispatchUpdatesTo(this)
+        private const val PAYLOAD_TIMESTAMP = "PAYLOAD_TIMESTAMP"
     }
 
     override fun getItemViewType(position: Int): Int {
-        return when (items[position]) {
+        return when (getItem(position)) {
             is SearchItem.BookItem -> TYPE_BOOK
             is SearchItem.DictionaryItem -> TYPE_DICTIONARY
+            is SearchItem.FolderItem -> TYPE_FOLDER
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        return if (viewType == TYPE_BOOK) {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_book, parent, false)
-            BookViewHolder(view)
-        } else {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_suggestion, parent, false)
-            DictionaryViewHolder(view)
+        return when (viewType) {
+            TYPE_BOOK -> {
+                val view = LayoutInflater.from(parent.context).inflate(R.layout.item_book, parent, false)
+                BookViewHolder(view)
+            }
+            TYPE_DICTIONARY -> {
+                val view = LayoutInflater.from(parent.context).inflate(R.layout.item_suggestion, parent, false)
+                DictionaryViewHolder(view)
+            }
+            TYPE_FOLDER -> {
+                val view = LayoutInflater.from(parent.context).inflate(R.layout.item_folder, parent, false)
+                FolderViewHolder(view)
+            }
+            else -> throw IllegalArgumentException("Invalid view type")
         }
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        when (val item = items[position]) {
+        when (val item = getItem(position)) {
             is SearchItem.BookItem -> (holder as BookViewHolder).bind(item.book)
             is SearchItem.DictionaryItem -> (holder as DictionaryViewHolder).bind(item.entry)
+            is SearchItem.FolderItem -> (holder as FolderViewHolder).bind(item)
         }
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isEmpty()) {
+            super.onBindViewHolder(holder, position, payloads)
+        } else {
+            val item = getItem(position)
+            if (item is SearchItem.BookItem && holder is BookViewHolder) {
+                for (payload in payloads) {
+                    if (payload == PAYLOAD_TIMESTAMP) {
+                        holder.updateTimestamp(item.book)
+                    }
+                }
+            }
+        }
+    }
 
-    private class ItemDiffCallback(
-        private val oldList: List<SearchItem>,
-        private val newList: List<SearchItem>
-    ) : DiffUtil.Callback() {
-        override fun getOldListSize() = oldList.size
-        override fun getNewListSize() = newList.size
-
-        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            val oldItem = oldList[oldItemPosition]
-            val newItem = newList[newItemPosition]
+    private class ItemDiffCallback : DiffUtil.ItemCallback<SearchItem>() {
+        override fun areItemsTheSame(oldItem: SearchItem, newItem: SearchItem): Boolean {
             return when {
                 oldItem is SearchItem.BookItem && newItem is SearchItem.BookItem -> 
                     oldItem.book.path == newItem.book.path
                 oldItem is SearchItem.DictionaryItem && newItem is SearchItem.DictionaryItem -> 
                     oldItem.entry.id == newItem.entry.id
+                oldItem is SearchItem.FolderItem && newItem is SearchItem.FolderItem ->
+                    oldItem.path == newItem.path
                 else -> false
             }
         }
 
-        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            return oldList[oldItemPosition] == newList[newItemPosition]
+        override fun areContentsTheSame(oldItem: SearchItem, newItem: SearchItem): Boolean {
+            return oldItem == newItem
+        }
+
+        override fun getChangePayload(oldItem: SearchItem, newItem: SearchItem): Any? {
+            if (oldItem is SearchItem.BookItem && newItem is SearchItem.BookItem) {
+                // Check if only timestamp changed
+                if (oldItem.book.copy(lastOpened = newItem.book.lastOpened) == newItem.book) {
+                    return PAYLOAD_TIMESTAMP
+                }
+            }
+            return null
+        }
+    }
+
+    inner class FolderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val nameView: TextView = itemView.findViewById(R.id.text_folder_name)
+        private val countView: TextView = itemView.findViewById(R.id.text_folder_count)
+
+        fun bind(item: SearchItem.FolderItem) {
+            nameView.text = item.name
+            countView.text = "${item.count} items"
+            itemView.setOnClickListener { onFolderClick(item.path) }
         }
     }
 
@@ -104,19 +139,7 @@ class BookAdapter(
 
         fun bind(book: BookEntity) {
             titleView.text = book.title
-            
-            if (book.lastOpened > 0) {
-                val diff = System.currentTimeMillis() - book.lastOpened
-                val hours = diff / (1000 * 60 * 60)
-                val days = hours / 24
-                lastOpenedView.text = when {
-                    days > 0 -> "Opened $days days ago"
-                    hours > 0 -> "Opened $hours hours ago"
-                    else -> "Opened just now"
-                }
-            } else {
-                lastOpenedView.text = "Never opened"
-            }
+            updateTimestamp(book)
             
             if (book.isFavorite) {
                 favButton.setColorFilter(Color.parseColor("#FFD700"))
@@ -166,8 +189,24 @@ class BookAdapter(
             }
         }
 
+        fun updateTimestamp(book: BookEntity) {
+            if (book.lastOpened > 0) {
+                val diff = System.currentTimeMillis() - book.lastOpened
+                val hours = diff / (1000 * 60 * 60)
+                val days = hours / 24
+                lastOpenedView.text = when {
+                    days > 0 -> "Opened $days days ago"
+                    hours > 0 -> "Opened $hours hours ago"
+                    else -> "Opened just now"
+                }
+            } else {
+                lastOpenedView.text = "Never opened"
+            }
+        }
+
         private fun loadPdfCoverAsync(path: String, target: ImageView) {
-            GlobalScope.launch(Dispatchers.IO) {
+            val lifecycleOwner = itemView.findViewTreeLifecycleOwner() ?: return
+            lifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     // Check cache again (might have been loaded by another coroutine)
                     if (coverCache.get(path) != null) {
@@ -220,7 +259,8 @@ class BookAdapter(
         }
         
         private fun loadEpubCoverAsync(path: String, target: ImageView) {
-            GlobalScope.launch(Dispatchers.IO) {
+            val lifecycleOwner = itemView.findViewTreeLifecycleOwner() ?: return
+            lifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     // Check cache again
                     if (coverCache.get(path) != null) {

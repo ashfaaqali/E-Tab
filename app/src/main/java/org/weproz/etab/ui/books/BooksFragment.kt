@@ -12,6 +12,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -54,6 +55,9 @@ class BooksFragment : Fragment() {
         },
         onDictionaryClick = { entry ->
             DefinitionDialogFragment.newInstance(entry).show(parentFragmentManager, "definition")
+        },
+        onFolderClick = { path ->
+            viewModel.openFolder(path)
         }
     )
 
@@ -125,6 +129,15 @@ class BooksFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!viewModel.closeFolder()) {
+                    isEnabled = false
+                    requireActivity().onBackPressed()
+                }
+            }
+        })
+        
         val factory = BooksViewModelFactory(requireActivity().application)
         viewModel = androidx.lifecycle.ViewModelProvider(this, factory)[BooksViewModel::class.java]
 
@@ -140,6 +153,7 @@ class BooksFragment : Fragment() {
         }
         binding.recyclerBooks.layoutManager = layoutManager
         binding.recyclerBooks.adapter = adapter
+        binding.recyclerBooks.itemAnimator = null // Disable animations to prevent flickering
         
         binding.searchBar.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -169,6 +183,24 @@ class BooksFragment : Fragment() {
                      binding.tabLayout.getTabAt(index)?.select()
                  }
              }
+        }
+
+        lifecycleScope.launch {
+            viewModel.currentFolder.collect { folder ->
+                if (folder != null) {
+                    binding.layoutFolderHeader.visibility = View.VISIBLE
+                    binding.textFolderPath.text = java.io.File(folder).name
+                    
+                    // Adjust constraints or visibility if needed
+                    // For now, layout handles it via GONE/VISIBLE
+                } else {
+                    binding.layoutFolderHeader.visibility = View.GONE
+                }
+            }
+        }
+        
+        binding.btnFolderBack.setOnClickListener {
+            viewModel.closeFolder()
         }
 
         checkPermissionAndLoad()
