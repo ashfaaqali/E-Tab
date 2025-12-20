@@ -27,7 +27,7 @@ object ShareHelper {
 
     /**
      * Share an existing PDF or EPUB file via Bluetooth
-     * For EPUB, converts to PDF first since Bluetooth may not support EPUB
+     * Shares the file directly without conversion
      */
     fun shareBookViaBluetooth(context: Context, filePath: String, title: String) {
         try {
@@ -37,201 +37,17 @@ object ShareHelper {
                 return
             }
 
-            if (filePath.endsWith(".epub", ignoreCase = true)) {
-                // Convert EPUB to PDF and share
-                Toast.makeText(context, "Converting to PDF...", Toast.LENGTH_SHORT).show()
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val pdfFile = convertEpubToPdf(context, filePath, title)
-                        withContext(Dispatchers.Main) {
-                            shareFileViaBluetooth(context, pdfFile, "application/pdf", title)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Failed to convert: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
+            val mimeType = if (filePath.endsWith(".epub", ignoreCase = true)) {
+                "application/epub+zip"
             } else {
-                // Share PDF directly
-                val uri = FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.fileprovider",
-                    file
-                )
-
-                val intent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/pdf"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    putExtra(Intent.EXTRA_SUBJECT, title)
-                    setPackage("com.android.bluetooth")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-
-                try {
-                    context.startActivity(intent)
-                } catch (_: Exception) {
-                    val chooser = Intent.createChooser(intent.apply { setPackage(null) }, "Share via")
-                    context.startActivity(chooser)
-                }
+                "application/pdf"
             }
+
+            shareFileViaBluetooth(context, file, mimeType, title)
+
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(context, "Failed to share: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    /**
-     * Convert EPUB to PDF
-     */
-    private fun convertEpubToPdf(context: Context, epubPath: String, title: String): File {
-        val epubReader = EpubReader()
-        val book = epubReader.readEpub(FileInputStream(epubPath))
-
-        val pdfDocument = PdfDocument()
-        val pageWidth = 595 // A4 width
-        val pageHeight = 842 // A4 height
-        val margin = 50f
-        val lineHeight = 18f
-
-        val titlePaint = Paint().apply {
-            color = Color.BLACK
-            textSize = 24f
-            isFakeBoldText = true
-            isAntiAlias = true
-        }
-
-        val contentPaint = Paint().apply {
-            color = Color.DKGRAY
-            textSize = 12f
-            isAntiAlias = true
-        }
-
-        val chapterTitlePaint = Paint().apply {
-            color = Color.BLACK
-            textSize = 18f
-            isFakeBoldText = true
-            isAntiAlias = true
-        }
-
-        var pageNumber = 1
-        var currentPage = pdfDocument.startPage(
-            PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
-        )
-        var canvas = currentPage.canvas
-        var yPos = margin + 30f
-
-        // Draw book title on first page
-        canvas.drawText(book.title ?: title, margin, yPos, titlePaint)
-        yPos += 50f
-
-        val maxWidth = pageWidth - 2 * margin
-
-        // Process each spine item (chapter)
-        for (spineRef in book.spine.spineReferences) {
-            val resource = spineRef.resource
-            if (resource != null) {
-                try {
-                    val content = String(resource.data)
-                    // Strip HTML tags to get plain text
-                    val plainText = content
-                        .replace(Regex("<script[^>]*>[\\s\\S]*?</script>"), "")
-                        .replace(Regex("<style[^>]*>[\\s\\S]*?</style>"), "")
-                        .replace(Regex("<[^>]+>"), " ")
-                        .replace(Regex("&nbsp;"), " ")
-                        .replace(Regex("&amp;"), "&")
-                        .replace(Regex("&lt;"), "<")
-                        .replace(Regex("&gt;"), ">")
-                        .replace(Regex("&quot;"), "\"")
-                        .replace(Regex("\\s+"), " ")
-                        .trim()
-
-                    if (plainText.isEmpty()) continue
-
-                    // Check if we need a new page for chapter
-                    if (yPos > pageHeight - margin - 50) {
-                        pdfDocument.finishPage(currentPage)
-                        pageNumber++
-                        currentPage = pdfDocument.startPage(
-                            PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
-                        )
-                        canvas = currentPage.canvas
-                        yPos = margin
-                    }
-
-                    // Draw chapter content
-                    val words = plainText.split(" ")
-                    var line = StringBuilder()
-
-                    for (word in words) {
-                        if (word.isEmpty()) continue
-
-                        val testLine = if (line.isEmpty()) word else "$line $word"
-                        val textWidth = contentPaint.measureText(testLine)
-
-                        if (textWidth > maxWidth) {
-                            canvas.drawText(line.toString(), margin, yPos, contentPaint)
-                            yPos += lineHeight
-                            line = StringBuilder(word)
-
-                            // Check if we need a new page
-                            if (yPos > pageHeight - margin) {
-                                pdfDocument.finishPage(currentPage)
-                                pageNumber++
-                                currentPage = pdfDocument.startPage(
-                                    PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
-                                )
-                                canvas = currentPage.canvas
-                                yPos = margin
-                            }
-                        } else {
-                            line = StringBuilder(testLine)
-                        }
-                    }
-
-                    // Draw remaining text
-                    if (line.isNotEmpty()) {
-                        canvas.drawText(line.toString(), margin, yPos, contentPaint)
-                        yPos += lineHeight * 2 // Extra space after chapter
-                    }
-                } catch (e: Exception) {
-                    // Skip problematic chapters
-                    e.printStackTrace()
-                }
-            }
-        }
-
-        pdfDocument.finishPage(currentPage)
-
-        // Save to file
-        val fileName = "${title.replace("[^a-zA-Z0-9]".toRegex(), "_")}_${System.currentTimeMillis()}.pdf"
-        val outputFile = File(context.cacheDir, fileName)
-        FileOutputStream(outputFile).use { out ->
-            pdfDocument.writeTo(out)
-        }
-        pdfDocument.close()
-
-        return outputFile
-    }
-
-    /**
-     * Convert text note to PDF and share via Bluetooth
-     */
-    suspend fun shareTextNoteAsPdf(context: Context, note: TextNoteEntity) {
-        withContext(Dispatchers.IO) {
-            try {
-                val pdfFile = createTextNotePdf(context, note)
-
-                withContext(Dispatchers.Main) {
-                    shareFileViaBluetooth(context, pdfFile, "application/pdf", note.title)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Failed to create PDF: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            }
         }
     }
 
@@ -245,6 +61,26 @@ object ShareHelper {
 
                 withContext(Dispatchers.Main) {
                     shareFileViaBluetooth(context, pdfFile, "application/pdf", title)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Failed to create PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Convert text note to PDF and share via Bluetooth
+     */
+    suspend fun shareTextNoteAsPdf(context: Context, note: TextNoteEntity) {
+        withContext(Dispatchers.IO) {
+            try {
+                val pdfFile = createTextNotePdf(context, note)
+
+                withContext(Dispatchers.Main) {
+                    shareFileViaBluetooth(context, pdfFile, "application/pdf", note.title)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -371,6 +207,7 @@ object ShareHelper {
         val pages = parsedData.pages
 
         val pdfDocument = PdfDocument()
+        // Use A4 size
         val pageWidth = 595
         val pageHeight = 842
 
@@ -386,6 +223,59 @@ object ShareHelper {
                 val page = pdfDocument.startPage(pageInfo)
                 val canvas = page.canvas
                 canvas.drawColor(Color.WHITE)
+
+                // Calculate bounds of the content
+                var minX = Float.MAX_VALUE
+                var maxX = Float.MIN_VALUE
+                var minY = Float.MAX_VALUE
+                var maxY = Float.MIN_VALUE
+                var hasContent = false
+
+                for (action in parsedPage.actions) {
+                    when (action) {
+                        is DrawAction.Stroke -> {
+                            for (point in action.points) {
+                                minX = minOf(minX, point.first)
+                                maxX = maxOf(maxX, point.first)
+                                minY = minOf(minY, point.second)
+                                maxY = maxOf(maxY, point.second)
+                                hasContent = true
+                            }
+                        }
+                        is DrawAction.Text -> {
+                            minX = minOf(minX, action.x)
+                            maxX = maxOf(maxX, action.x + action.textSize * action.text.length * 0.6f) // Approx width
+                            minY = minOf(minY, action.y - action.textSize)
+                            maxY = maxOf(maxY, action.y)
+                            hasContent = true
+                        }
+                    }
+                }
+
+                if (hasContent) {
+                    // Add some padding to bounds
+                    val padding = 20f
+                    minX -= padding
+                    minY -= padding
+                    maxX += padding
+                    maxY += padding
+
+                    val contentWidth = maxX - minX
+                    val contentHeight = maxY - minY
+
+                    // Calculate scale to fit in A4
+                    val scaleX = pageWidth.toFloat() / contentWidth
+                    val scaleY = pageHeight.toFloat() / contentHeight
+                    val scale = minOf(scaleX, scaleY, 1.0f) // Don't scale up, only down if needed
+
+                    // Center content
+                    val translateX = (pageWidth - contentWidth * scale) / 2f - minX * scale
+                    val translateY = (pageHeight - contentHeight * scale) / 2f - minY * scale
+
+                    canvas.save()
+                    canvas.translate(translateX, translateY)
+                    canvas.scale(scale, scale)
+                }
 
                 // Draw each action from the page
                 for (action in parsedPage.actions) {
@@ -419,6 +309,10 @@ object ShareHelper {
                             canvas.drawText(action.text, action.x, action.y, paint)
                         }
                     }
+                }
+
+                if (hasContent) {
+                    canvas.restore()
                 }
 
                 pdfDocument.finishPage(page)
