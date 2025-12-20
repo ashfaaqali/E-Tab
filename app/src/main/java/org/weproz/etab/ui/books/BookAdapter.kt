@@ -172,19 +172,13 @@ class BookAdapter(
             // Set placeholder and load cover
             coverView.setImageResource(R.drawable.app_logo)
             coverView.scaleType = ImageView.ScaleType.CENTER_INSIDE
-
+            coverView.setBackgroundColor(Color.WHITE)
             when (book.type) {
                 BookType.PDF -> {
-                    coverView.setBackgroundColor(Color.parseColor("#E53935")) // Red for PDF
                     loadPdfCoverAsync(book.path, coverView)
                 }
                 BookType.EPUB -> {
-                    coverView.setBackgroundColor(Color.WHITE)
                     loadEpubCoverAsync(book.path, coverView)
-                }
-                else -> {
-                    // Handle other types or future types
-                    coverView.setImageResource(R.drawable.books)
                 }
             }
         }

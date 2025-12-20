@@ -19,4 +19,7 @@
     <string name="dot">Dot</string>
     <string name="square">Square</string>
     <string name="ruled">Ruled</string>
+    <string name="folders">Folders</string>
+    <string name="favorites">Favorites</string>
+    <string name="all_books">All Books</string>
 </resources>
