@@ -1,6 +1,7 @@
 package org.weproz.etab.ui.dictionary
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -10,6 +11,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import org.weproz.etab.R
 import org.weproz.etab.databinding.FragmentDictionaryBinding
 import org.weproz.etab.ui.search.SearchActivity
 
@@ -101,6 +103,7 @@ class DictionaryFragment : Fragment() {
 
         val wordInput = android.widget.EditText(context).apply {
             hint = "Word"
+            setHintTextColor(Color.GRAY)
         }
         val typeInput = android.widget.EditText(context).apply {
             hint = "Type (e.g., noun, verb)"

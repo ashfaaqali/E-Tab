@@ -395,7 +395,7 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                 val input = android.widget.EditText(this)
                 input.hint = "Whiteboard Title"
                 
-                org.weproz.etab.ui.custom.CustomDialog(this)
+                CustomDialog(this)
                     .setTitle("New Whiteboard")
                     .setView(input)
                     .setPositiveButton("Create") { dialog ->

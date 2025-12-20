@@ -20,6 +20,7 @@ import org.weproz.etab.data.local.database.AppDatabase
 import org.weproz.etab.data.local.entity.HighlightEntity
 import org.weproz.etab.data.model.whiteboard.DrawAction
 import org.weproz.etab.databinding.ActivityReaderBinding
+import org.weproz.etab.ui.custom.CustomDialog
 import org.weproz.etab.ui.search.DefinitionDialogFragment
 import java.io.FileInputStream
 
@@ -195,7 +196,7 @@ class ReaderActivity : AppCompatActivity() {
                 val input = android.widget.EditText(this)
                 input.hint = "Whiteboard Title"
 
-                org.weproz.etab.ui.custom.CustomDialog(this)
+                CustomDialog(this)
                     .setTitle("New Whiteboard")
                     .setView(input)
                     .setPositiveButton("Create") { dialog ->

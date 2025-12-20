@@ -11,6 +11,7 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.TextView
 import org.weproz.etab.R
+import androidx.core.graphics.drawable.toDrawable
 
 class CustomDialog(context: Context) {
 
@@ -22,7 +23,7 @@ class CustomDialog(context: Context) {
 
     init {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
         
         val view = LayoutInflater.from(context).inflate(R.layout.dialog_custom, null)
         dialog.setContentView(view)
@@ -55,7 +56,7 @@ class CustomDialog(context: Context) {
         val textView = TextView(dialog.context)
         textView.text = message
         textView.textSize = 16f
-        textView.setTextColor(Color.DKGRAY)
+        textView.setTextColor(Color.GRAY)
         contentContainer.removeAllViews()
         contentContainer.addView(textView)
         return this

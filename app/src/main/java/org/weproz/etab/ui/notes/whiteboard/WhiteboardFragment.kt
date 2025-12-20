@@ -326,7 +326,7 @@ class WhiteboardFragment : Fragment() {
 
     private fun showAddTextDialog() {
         val editText = EditText(requireContext())
-        org.weproz.etab.ui.custom.CustomDialog(requireContext())
+        CustomDialog(requireContext())
             .setTitle("Add Text")
             .setView(editText)
             .setPositiveButton("Add") { dialog ->
