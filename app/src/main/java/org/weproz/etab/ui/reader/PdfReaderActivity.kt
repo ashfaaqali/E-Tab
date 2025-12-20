@@ -177,7 +177,7 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
         try {
             // Load the viewer from the same "virtual" domain to avoid CORS issues
             val encodedUrl = URLEncoder.encode("https://etab.local/book.pdf", "UTF-8")
-            val viewerUrl = "https://etab.local/pdfjs/web/viewer.html?file=$encodedUrl"
+            val viewerUrl = "https://etab.local/pdfjs/web/viewer.html?file=$encodedUrl#pagemode=none"
             binding.webview.loadUrl(viewerUrl)
         } catch (e: Exception) {
             e.printStackTrace()
