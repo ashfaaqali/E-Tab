@@ -14,7 +14,7 @@
         android:gravity="center_vertical"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
-        android:background="?attr/colorPrimary"
+        android:background="@color/md_theme_primary2"
         android:elevation="4dp"
         app:layout_constraintTop_toTopOf="parent">
 
@@ -26,13 +26,6 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Back"
             app:tint="@android:color/white" />
-
-        <org.weproz.etab.ui.custom.WhiteboardToolbarView
-            android:id="@+id/whiteboard_toolbar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:visibility="gone"/>
 
         <View
             android:layout_width="0dp"
@@ -59,6 +52,17 @@
             app:tint="@android:color/white" />
 
     </LinearLayout>
+
+    <org.weproz.etab.ui.custom.WhiteboardToolbarView
+        android:id="@+id/whiteboard_toolbar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:elevation="8dp"
+        app:layout_constraintTop_toBottomOf="@id/top_action_bar"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"/>
 
     <org.weproz.etab.ui.reader.CustomWebView
         android:id="@+id/webview"

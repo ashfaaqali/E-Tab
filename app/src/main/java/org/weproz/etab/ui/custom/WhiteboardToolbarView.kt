@@ -236,8 +236,6 @@ class WhiteboardToolbarView @JvmOverloads constructor(
             .show()
     }
 
-
-
     private fun showClearConfirmationDialog() {
         CustomDialog(context)
             .setTitle("Clear Annotations")

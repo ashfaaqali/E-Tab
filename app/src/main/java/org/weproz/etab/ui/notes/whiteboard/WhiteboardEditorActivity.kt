@@ -66,6 +66,7 @@ class WhiteboardEditorActivity : AppCompatActivity() {
             viewModel.pages.add(ParsedPage(emptyList(), GridType.NONE))
         }
 
+        binding.whiteboardToolbar.attachTo(binding.whiteboardView)
         setupTools()
         setupPageNavigation()
         
