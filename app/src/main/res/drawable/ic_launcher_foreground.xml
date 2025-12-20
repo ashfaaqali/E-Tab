@@ -2,39 +2,40 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="54"
+    android:viewportHeight="54">
+    <group
+        android:translateX="15"
+        android:translateY="15">
+        <!-- Book Spine -->
+        <path
+            android:fillColor="@color/md_theme_primary"
+            android:pathData="M5,2h2v20H5z" />
 
-    <!-- Book centered in safe zone (21-87 on 108dp canvas) -->
+        <!-- Book Cover -->
+        <path
+            android:fillColor="@color/md_theme_primary"
+            android:pathData="M7,2h12c1.1,0 2,0.9 2,2v16c0,1.1 -0.9,2 -2,2H7z" />
 
-    <!-- Book Spine -->
-    <path
-        android:fillColor="@color/md_theme_primary"
-        android:pathData="M28,24h6v60H28z" />
+        <!-- Pages -->
+        <path
+            android:fillColor="@color/md_theme_surfaceContainer"
+            android:pathData="M8,3h10v16H8z" />
 
-    <!-- Book Cover -->
-    <path
-        android:fillColor="@color/md_theme_primary"
-        android:pathData="M34,24h40c3,0 5,2 5,5v50c0,3 -2,5 -5,5H34z" />
+        <!-- Text Content -->
+        <path
+            android:fillColor="@color/md_theme_onSurface"
+            android:pathData="M10,6h6v1h-6z" />
+        <path
+            android:fillColor="@color/md_theme_onSurface"
+            android:pathData="M10,9h6v1h-6z" />
+        <path
+            android:fillColor="@color/md_theme_onSurface"
+            android:pathData="M10,12h4v1h-4z" />
 
-    <!-- Pages -->
-    <path
-        android:fillColor="@color/md_theme_onPrimary"
-        android:pathData="M36,27h36v54H36z" />
-
-    <!-- Text Content -->
-    <path
-        android:fillColor="@color/md_theme_onSurface"
-        android:pathData="M40,36h24v3h-24z" />
-    <path
-        android:fillColor="@color/md_theme_onSurface"
-        android:pathData="M40,44h24v3h-24z" />
-    <path
-        android:fillColor="@color/md_theme_onSurface"
-        android:pathData="M40,52h16v3h-16z" />
-
-    <!-- Bookmark Ribbon -->
-    <path
-        android:fillColor="@color/md_theme_tertiary"
-        android:pathData="M66,27h6v14l-3,-3l-3,3z" />
+        <!-- Bookmark Ribbon -->
+        <path
+            android:fillColor="@color/md_theme_tertiary"
+            android:pathData="M16,4h2v4l-1,-1l-1,1z" />
+    </group>
 </vector>
