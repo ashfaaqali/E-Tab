@@ -27,7 +27,6 @@ import org.weproz.etab.databinding.FragmentBooksBinding
 import org.weproz.etab.ui.reader.PdfReaderActivity
 import org.weproz.etab.ui.reader.ReaderActivity
 import org.weproz.etab.ui.search.DefinitionDialogFragment
-import org.weproz.etab.util.ShareHelper
 
 class BooksFragment : Fragment() {
 
@@ -64,7 +63,6 @@ class BooksFragment : Fragment() {
     private fun showBookContextMenu(book: BookEntity) {
         val options = arrayOf(
             if (book.isFavorite) "Remove from Favorites" else "Add to Favorites",
-            "Share via Bluetooth",
             "Delete Book"
         )
 
@@ -73,8 +71,7 @@ class BooksFragment : Fragment() {
             .setItems(options) { dialog, which ->
                 when (which) {
                     0 -> viewModel.toggleFavorite(book)
-                    1 -> ShareHelper.shareBookViaBluetooth(requireContext(), book.path, book.title)
-                    2 -> showDeleteConfirmation(book)
+                    1 -> showDeleteConfirmation(book)
                 }
             }
             .show()
