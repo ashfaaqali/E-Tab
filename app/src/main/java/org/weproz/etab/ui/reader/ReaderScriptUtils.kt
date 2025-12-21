@@ -620,6 +620,48 @@ object ReaderScriptUtils {
                     document.getElementById('btn-remove').style.display = 'none';
                 }
 
+                // --- Global Offset Logic ---
+
+                function getGlobalOffset(node, offset) {
+                    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+                    var currentOffset = 0;
+                    while(walker.nextNode()) {
+                        if (walker.currentNode === node) {
+                            return currentOffset + offset;
+                        }
+                        currentOffset += walker.currentNode.length;
+                    }
+                    return -1;
+                }
+
+                function createRangeFromOffsets(start, end) {
+                    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+                    var currentOffset = 0;
+                    var range = document.createRange();
+                    var startFound = false, endFound = false;
+
+                    while(walker.nextNode()) {
+                        var node = walker.currentNode;
+                        var nodeLength = node.length;
+
+                        if (!startFound && start >= currentOffset && start < currentOffset + nodeLength) {
+                            range.setStart(node, start - currentOffset);
+                            startFound = true;
+                        }
+
+                        if (!endFound && end > currentOffset && end <= currentOffset + nodeLength) {
+                            range.setEnd(node, end - currentOffset);
+                            endFound = true;
+                        }
+
+                        if (startFound && endFound) return range;
+                        currentOffset += nodeLength;
+                    }
+                    return null;
+                }
+
+                // --- Interaction Logic ---
+
                 document.addEventListener('selectionchange', function() {
                     var selection = window.getSelection();
                     var menu = document.getElementById('custom-menu');
@@ -628,41 +670,22 @@ object ReaderScriptUtils {
                         selectedText = selection.toString();
                         selectionRange = selection.getRangeAt(0);
                         
-                        // Check if selection is inside a highlight OR contains a highlight
                         var isHighlighted = false;
                         
-                        // 1. Check if selection is inside a highlight (ancestor check)
+                        // Check ancestor
                         var parent = selectionRange.commonAncestorContainer;
-                        if (parent.nodeType === 3) { // Text node
-                            parent = parent.parentNode;
-                        }
+                        if (parent.nodeType === 3) parent = parent.parentNode;
                         if (parent.classList.contains('highlighted')) {
                             isHighlighted = true;
                             clickedHighlight = parent;
                         }
                         
-                        // 2. Check if selection contains any highlighted elements (descendant check)
-                        if (!isHighlighted) {
-                            var div = document.createElement('div');
-                            div.appendChild(selectionRange.cloneContents());
-                            if (div.querySelector('.highlighted')) {
-                                isHighlighted = true;
-                                clickedHighlight = null; // Will need to find it during removal
-                            }
-                        }
-                        
                         if (isHighlighted) {
-                            // Show Define, Remove Highlight, Copy
                             document.getElementById('btn-define').style.display = 'inline-block';
                             document.getElementById('btn-highlight').style.display = 'none';
                             document.getElementById('btn-copy').style.display = 'inline-block';
                             document.getElementById('btn-remove').style.display = 'inline-block';
-                            
-                            // Ensure separators are visible
-                            var separators = document.getElementsByClassName('separator');
-                            for(var i=0; i<separators.length; i++) separators[i].style.display = 'inline-block';
                         } else {
-                            // Show Define, Highlight, Copy
                             resetMenuButtons();
                         }
                         
@@ -671,8 +694,8 @@ object ReaderScriptUtils {
                         var scrollLeft = window.scrollX || document.documentElement.scrollLeft;
                         
                         menu.style.display = 'block';
-                        var menuWidth = menu.offsetWidth;
-                        var menuHeight = menu.offsetHeight;
+                        var menuWidth = menu.offsetWidth || 200;
+                        var menuHeight = menu.offsetHeight || 40;
                         
                         var top = scrollTop + rect.top - menuHeight - 10;
                         var left = scrollLeft + rect.left + (rect.width / 2) - (menuWidth / 2);
@@ -691,24 +714,16 @@ object ReaderScriptUtils {
                 document.addEventListener('click', function(e) {
                     var menu = document.getElementById('custom-menu');
                     
-                    // 1. Check if clicked on menu or inside menu
-                    if (menu.contains(e.target)) {
-                        return; // Let button handlers work
-                    }
+                    if (menu.contains(e.target)) return;
 
-                    // 2. Check if clicked on a highlight
                     if (e.target.classList.contains('highlighted')) {
                         clickedHighlight = e.target;
                         selectedText = e.target.textContent;
                         
-                        // Show Define, Remove Highlight, Copy
                         document.getElementById('btn-define').style.display = 'inline-block';
                         document.getElementById('btn-highlight').style.display = 'none';
                         document.getElementById('btn-copy').style.display = 'inline-block';
                         document.getElementById('btn-remove').style.display = 'inline-block';
-                        
-                        var separators = document.getElementsByClassName('separator');
-                        for(var i=0; i<separators.length; i++) separators[i].style.display = 'inline-block';
                         
                         menu.style.display = 'block';
                         
@@ -716,10 +731,7 @@ object ReaderScriptUtils {
                         var scrollTop = window.scrollY || document.documentElement.scrollTop;
                         var scrollLeft = window.scrollX || document.documentElement.scrollLeft;
                         
-                        // Force layout to get correct dimensions
-                        var menuWidth = menu.offsetWidth; 
-                        if (menuWidth === 0) menuWidth = 150; // Fallback
-                        
+                        var menuWidth = menu.offsetWidth || 200;
                         var top = scrollTop + rect.top - menu.offsetHeight - 10;
                         var left = scrollLeft + rect.left + (rect.width / 2) - (menuWidth / 2);
                         
@@ -732,29 +744,18 @@ object ReaderScriptUtils {
                         
                         e.stopPropagation();
                         return;
-                    } 
-                    
-                    // 3. Clicked elsewhere
-                    
-                    // If menu was visible, hide it and don't navigate
-                    if (menu.style.display === 'block') {
-                         menu.style.display = 'none';
-                         resetMenuButtons();
-                         return;
                     }
-                    
-                    // 4. Navigation Logic
-                    var width = window.innerWidth;
-                    var x = e.clientX;
-                    
-                    // Only navigate if not selecting text (selection usually implies drag, but click is click)
-                    // If selection is non-empty, we probably shouldn't navigate?
-                    // But selectionchange handles showing the menu.
-                    // If I click to clear selection, selection becomes empty.
-                    
-                    if (window.getSelection().toString().length > 0) {
+
+                    if (menu.style.display === 'block') {
+                        menu.style.display = 'none';
+                        resetMenuButtons();
                         return;
                     }
+
+                    if (window.getSelection().toString().length > 0) return;
+                    
+                    var width = window.innerWidth;
+                    var x = e.clientX;
                     
                     if (x < width * 0.25) {
                         Android.onPrevPage();
@@ -775,199 +776,121 @@ object ReaderScriptUtils {
                     document.getElementById('custom-menu').style.display = 'none';
                 }
 
-                function removeHighlight() {
-                    var selection = window.getSelection();
+                function applyHighlightToRange(range, rangeData) {
+                    var startNode = range.startContainer;
+                    var startOffset = range.startOffset;
+                    var endNode = range.endContainer;
+                    var endOffset = range.endOffset;
+
+                    // Collect all text nodes in range
+                    var nodes = [];
                     
-                    // Case 1: Selection-based removal (Partial or Full overlap)
-                    if (selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
-                        var range = selection.getRangeAt(0);
-                        
-                        // Find all highlights intersecting the range
-                        var highlights = document.querySelectorAll('.highlighted');
-                        var highlightsToProcess = [];
-                        
-                        for (var i = 0; i < highlights.length; i++) {
-                            if (range.intersectsNode(highlights[i])) {
-                                highlightsToProcess.push(highlights[i]);
+                    if (startNode === endNode && startNode.nodeType === 3) {
+                        nodes.push(startNode);
+                    } else {
+                        var commonAncestor = range.commonAncestorContainer;
+                        var walker = document.createTreeWalker(commonAncestor, NodeFilter.SHOW_TEXT, {
+                            acceptNode: function(node) {
+                                if (range.intersectsNode(node)) return NodeFilter.FILTER_ACCEPT;
+                                return NodeFilter.FILTER_REJECT;
                             }
+                        }, false);
+                        while(walker.nextNode()) nodes.push(walker.currentNode);
+                    }
+
+                    nodes.forEach(function(node) {
+                        var r = document.createRange();
+                        if (node === startNode && node === endNode) {
+                            r.setStart(node, startOffset);
+                            r.setEnd(node, endOffset);
+                        } else if (node === startNode) {
+                            r.setStart(node, startOffset);
+                            r.setEnd(node, node.length);
+                        } else if (node === endNode) {
+                            r.setStart(node, 0);
+                            r.setEnd(node, endOffset);
+                        } else {
+                            r.selectNodeContents(node);
                         }
                         
-                        highlightsToProcess.forEach(function(el) {
-                            // 1. Remove old from DB
-                            var oldText = el.textContent;
-                            var oldRangeData = el.getAttribute('data-range');
-                            Android.onRemoveHighlight(oldText, oldRangeData);
-                            
-                            // 2. Calculate split points
-                            var fullText = el.textContent;
-                            var elRange = document.createRange();
-                            elRange.selectNodeContents(el);
-                            
-                            var startOffset = 0;
-                            var endOffset = fullText.length;
-                            
-                            // Check start
-                            if (range.compareBoundaryPoints(Range.START_TO_START, elRange) > 0) {
-                                // Selection starts inside this element
-                                // We assume the highlight span contains a single text node
-                                if (el.firstChild && el.firstChild.nodeType === 3) {
-                                     // If selection starts in this text node
-                                     if (range.startContainer === el.firstChild) {
-                                         startOffset = range.startOffset;
-                                     }
-                                }
+                        if (!r.collapsed) {
+                            var span = document.createElement('span');
+                            span.className = 'highlighted';
+                            span.dataset.range = rangeData;
+                            try {
+                                r.surroundContents(span);
+                            } catch(e) {
+                                console.error("Highlight error", e);
                             }
-                            
-                            // Check end
-                            if (range.compareBoundaryPoints(Range.END_TO_END, elRange) < 0) {
-                                // Selection ends inside this element
-                                if (el.firstChild && el.firstChild.nodeType === 3) {
-                                     if (range.endContainer === el.firstChild) {
-                                         endOffset = range.endOffset;
-                                     }
-                                }
-                            }
-                            
-                            // 3. Create new nodes
-                            var fragment = document.createDocumentFragment();
-                            
-                            // Pre-fragment (Keep highlighted)
-                            if (startOffset > 0) {
-                                var span1 = document.createElement('span');
-                                span1.className = 'highlighted';
-                                span1.textContent = fullText.substring(0, startOffset);
-                                span1.setAttribute('data-needs-index', 'true');
-                                fragment.appendChild(span1);
-                            }
-                            
-                            // Middle-fragment (Remove highlight)
-                            var textNode = document.createTextNode(fullText.substring(startOffset, endOffset));
-                            fragment.appendChild(textNode);
-                            
-                            // Post-fragment (Keep highlighted)
-                            if (endOffset < fullText.length) {
-                                var span2 = document.createElement('span');
-                                span2.className = 'highlighted';
-                                span2.textContent = fullText.substring(endOffset);
-                                span2.setAttribute('data-needs-index', 'true');
-                                fragment.appendChild(span2);
-                            }
-                            
-                            el.parentNode.replaceChild(fragment, el);
-                        });
-                        
-                        // 4. Update DB for new fragments
-                        // We need to process them in document order to get correct indices
-                        var newHighlights = document.querySelectorAll('span[data-needs-index="true"]');
-                        newHighlights.forEach(function(span) {
-                            span.removeAttribute('data-needs-index');
-                            var text = span.textContent;
-                            
-                            // Calculate index
-                            var index = 0;
-                            var tempRange = document.createRange();
-                            tempRange.selectNodeContents(document.body);
-                            tempRange.setEndBefore(span);
-                            var precedingText = tempRange.toString();
-                            
-                            var count = 0;
-                            var pos = precedingText.indexOf(text);
-                            while (pos !== -1) {
-                                count++;
-                                pos = precedingText.indexOf(text, pos + 1);
-                            }
-                            index = count;
-                            
-                            span.setAttribute('data-range', index.toString());
-                            Android.onHighlight(text, index.toString());
-                        });
-                        
-                        selection.removeAllRanges();
-                    } 
-                    // Case 2: Click-based removal (No selection range, just a click on highlight)
-                    else if (clickedHighlight) {
-                        var text = clickedHighlight.textContent;
-                        var rangeData = clickedHighlight.getAttribute('data-range');
-                        
-                        Android.onRemoveHighlight(text, rangeData);
-                        
-                        var parent = clickedHighlight.parentNode;
-                        parent.replaceChild(document.createTextNode(text), clickedHighlight);
-                        parent.normalize();
-                        
-                        clickedHighlight = null;
-                    }
-                    
-                    document.getElementById('custom-menu').style.display = 'none';
-                    resetMenuButtons();
+                        }
+                    });
                 }
 
                 function highlightText() {
                     if (selectionRange) {
-                        var index = 0;
-                        var tempRange = document.createRange();
-                        tempRange.selectNodeContents(document.body);
-                        tempRange.setEnd(selectionRange.startContainer, selectionRange.startOffset);
-                        var precedingText = tempRange.toString();
+                        var start = getGlobalOffset(selectionRange.startContainer, selectionRange.startOffset);
+                        var end = getGlobalOffset(selectionRange.endContainer, selectionRange.endOffset);
                         
-                        var count = 0;
-                        var pos = precedingText.indexOf(selectedText);
-                        while (pos !== -1) {
-                            count++;
-                            pos = precedingText.indexOf(selectedText, pos + 1);
+                        if (start !== -1 && end !== -1) {
+                            var rangeData = JSON.stringify({start: start, end: end});
+                            applyHighlightToRange(selectionRange, rangeData);
+                            Android.onHighlight(selectedText, rangeData);
                         }
-                        index = count;
-
-                        var span = document.createElement('span');
-                        span.className = 'highlighted';
-                        span.textContent = selectedText;
-                        span.setAttribute('data-range', index.toString());
-                        selectionRange.deleteContents();
-                        selectionRange.insertNode(span);
-                        
-                        Android.onHighlight(selectedText, index.toString());
                         
                         window.getSelection().removeAllRanges();
                         document.getElementById('custom-menu').style.display = 'none';
                     }
                 }
-                
-                function restoreHighlight(text, indexStr) {
-                    var targetIndex = parseInt(indexStr);
-                    if (isNaN(targetIndex)) targetIndex = 0;
-                    
-                    var walker = document.createTreeWalker(
-                        document.body,
-                        NodeFilter.SHOW_TEXT,
-                        null,
-                        false
-                    );
 
-                    var currentNode;
-                    var matchCount = 0;
-                    
-                    while (currentNode = walker.nextNode()) {
-                        var nodeValue = currentNode.nodeValue;
-                        var pos = nodeValue.indexOf(text);
-                        
-                        while (pos !== -1) {
-                            if (matchCount === targetIndex) {
-                                var range = document.createRange();
-                                range.setStart(currentNode, pos);
-                                range.setEnd(currentNode, pos + text.length);
-                                
-                                var span = document.createElement('span');
-                                span.className = 'highlighted';
-                                span.textContent = text;
-                                span.setAttribute('data-range', indexStr);
-                                range.deleteContents();
-                                range.insertNode(span);
-                                return;
+                function restoreHighlight(text, rangeDataStr) {
+                    try {
+                        var data = JSON.parse(rangeDataStr);
+                        if (typeof data.start === 'number' && typeof data.end === 'number') {
+                            var range = createRangeFromOffsets(data.start, data.end);
+                            if (range) {
+                                applyHighlightToRange(range, rangeDataStr);
                             }
-                            matchCount++;
-                            pos = nodeValue.indexOf(text, pos + 1);
+                        }
+                    } catch(e) {
+                        console.error("Restore error", e);
+                    }
+                }
+
+                function removeHighlight() {
+                    var rangeData = null;
+                    var text = "";
+                    
+                    if (clickedHighlight) {
+                        rangeData = clickedHighlight.dataset.range;
+                        text = clickedHighlight.textContent;
+                    } else if (selectionRange) {
+                        var parent = selectionRange.commonAncestorContainer;
+                        if (parent.nodeType === 3) parent = parent.parentNode;
+                        if (parent.classList.contains('highlighted')) {
+                            rangeData = parent.dataset.range;
+                            text = parent.textContent;
                         }
                     }
+                    
+                    if (rangeData) {
+                        var spans = document.querySelectorAll('.highlighted');
+                        spans.forEach(function(span) {
+                            if (span.dataset.range === rangeData) {
+                                var parent = span.parentNode;
+                                while(span.firstChild) {
+                                    parent.insertBefore(span.firstChild, span);
+                                }
+                                parent.removeChild(span);
+                                parent.normalize();
+                            }
+                        });
+                        
+                        Android.onRemoveHighlight(text, rangeData);
+                    }
+                    
+                    document.getElementById('custom-menu').style.display = 'none';
+                    resetMenuButtons();
+                    clickedHighlight = null;
                 }
             </script>
     """
