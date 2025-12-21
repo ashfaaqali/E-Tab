@@ -78,14 +78,22 @@ class WhiteboardView @JvmOverloads constructor(
             }
         }
 
-    private var strokeWidth = 10f
+    private var penStrokeWidth = 10f
+    private var eraserStrokeWidth = 30f
+
+    private val currentStrokeWidth: Float
+        get() = if (currentTool == ToolType.ERASER) eraserStrokeWidth else penStrokeWidth
     
     var onActionCompleted: (() -> Unit)? = null
     
-    fun getStrokeWidth(): Float = strokeWidth
+    fun getStrokeWidth(): Float = currentStrokeWidth
     
     fun setStrokeWidthGeneric(width: Float) {
-        strokeWidth = width
+        if (currentTool == ToolType.ERASER) {
+            eraserStrokeWidth = width
+        } else {
+            penStrokeWidth = width
+        }
     }
     
     // Grid Setup
@@ -104,9 +112,7 @@ class WhiteboardView @JvmOverloads constructor(
     
     // Eraser Size
     fun setEraserSize(size: Float) {
-        if (isEraser) {
-            strokeWidth = size
-        }
+        eraserStrokeWidth = size
     }
 
     private val paths = mutableListOf<DrawAction>()
@@ -131,7 +137,7 @@ class WhiteboardView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeJoin = Paint.Join.ROUND
         strokeCap = Paint.Cap.ROUND
-        this.strokeWidth = strokeWidth
+        this.strokeWidth = currentStrokeWidth
     }
 
     private val textPaint = Paint().apply {
@@ -232,7 +238,7 @@ class WhiteboardView @JvmOverloads constructor(
 
         // Draw current drawing path
         if (!currentPath.isEmpty) {
-            drawPaint.strokeWidth = strokeWidth
+            drawPaint.strokeWidth = currentStrokeWidth
             if (currentTool == ToolType.ERASER) {
                 drawPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
                 drawPaint.color = Color.TRANSPARENT
@@ -549,7 +555,7 @@ class WhiteboardView @JvmOverloads constructor(
                             Path(currentPath),
                             ArrayList(currentPoints),
                             if (currentTool == ToolType.ERASER) Color.TRANSPARENT else effectiveDrawColor,
-                            strokeWidth,
+                            currentStrokeWidth,
                             currentTool == ToolType.ERASER
                         )
                         paths.add(stroke)
