@@ -27,6 +27,7 @@ import org.weproz.etab.databinding.ActivityWhiteboardEditorBinding
 import java.io.File
 import java.io.FileOutputStream
 import androidx.core.view.get
+import org.weproz.etab.ui.custom.CustomPopupMenu
 
 @AndroidEntryPoint
 class WhiteboardEditorActivity : AppCompatActivity() {
@@ -85,6 +86,19 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         binding.btnBack.setOnClickListener {
             saveWhiteboard()
             finish()
+        }
+
+        // Save button
+        binding.btnSave.setOnClickListener { view ->
+            CustomPopupMenu(this, view)
+                .addItem("Save", R.drawable.ic_save) {
+                    saveWhiteboard()
+                    Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+                }
+                .addItem("Save as PDF", R.drawable.ic_pdf) {
+                    saveAsPdf()
+                }
+                .show()
         }
     }
 
@@ -151,40 +165,7 @@ class WhiteboardEditorActivity : AppCompatActivity() {
         binding.btnNextPage.alpha = if (viewModel.currentPageIndex < viewModel.pages.size - 1) 1.0f else 0.3f
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.menu_whiteboard, menu)
-        return true
-    }
 
-    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
-        for (i in 0 until (menu?.size ?: 0)) {
-            val item = menu?.get(i)
-            val spanString = SpannableString(item?.title.toString())
-            spanString.setSpan(
-                android.text.style.ForegroundColorSpan(Color.BLACK),
-                0,
-                spanString.length,
-                0
-            )
-            item?.title = spanString
-        }
-        return super.onPrepareOptionsMenu(menu)
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_save -> {
-                saveWhiteboard()
-                Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
-                true
-            }
-            R.id.action_save_pdf -> {
-                saveAsPdf()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
 
 
 

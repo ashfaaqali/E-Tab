@@ -38,7 +38,7 @@
                     android:src="@drawable/ic_arrow_back"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/back"
-                    app:tint="?attr/buttonTint"
+                    app:tint="@android:color/white"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent"/>
@@ -49,6 +49,19 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     app:layout_constraintStart_toEndOf="@id/btn_back"
+                    app:layout_constraintEnd_toStartOf="@id/btn_save"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
+
+                <!-- Save Button -->
+                <ImageView
+                    android:id="@+id/btn_save"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_options"
+                    android:contentDescription="@string/save"
+                    app:tint="@android:color/white"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent"/>
@@ -88,7 +101,7 @@
             android:src="@drawable/ic_chevron_left"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Previous page"
-            app:tint="@android:color/black"/>
+            app:tint="?attr/colorOnSurface"/>
 
         <TextView
             android:id="@+id/text_page_indicator"
@@ -98,7 +111,7 @@
             android:text="Page 1 of 1"
             android:textAlignment="center"
             android:textSize="14sp"
-            android:textColor="@android:color/black"/>
+            app:tint="?attr/colorOnSurface"/>
 
         <ImageButton
             android:id="@+id/btn_next_page"
@@ -107,7 +120,7 @@
             android:src="@drawable/ic_chevron_right"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Next page"
-            app:tint="@android:color/black"/>
+            app:tint="?attr/colorOnSurface"/>
 
         <ImageButton
             android:id="@+id/btn_add_page"
@@ -117,7 +130,7 @@
             android:src="@drawable/ic_add"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Add page"
-            app:tint="@android:color/black"/>
+            app:tint="?attr/colorOnSurface"/>
 
     </LinearLayout>
 
