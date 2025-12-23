@@ -16,6 +16,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
+import android.os.UserManager
+import org.weproz.etab.receiver.MyDeviceAdminReceiver
+
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
@@ -30,6 +36,8 @@ class MainActivity : AppCompatActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        setupKioskMode()
 
         val navView: BottomNavigationView = binding.navView
 
@@ -192,6 +200,43 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun setupKioskMode() {
+        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val adminName = ComponentName(this, MyDeviceAdminReceiver::class.java)
+
+        if (dpm.isDeviceOwnerApp(packageName)) {
+            // Set lock task packages
+            dpm.setLockTaskPackages(adminName, arrayOf(packageName))
+            
+            // Start lock task
+            startLockTask()
+            
+            // Restrictions
+            dpm.addUserRestriction(adminName, UserManager.DISALLOW_CONFIG_WIFI)
+            dpm.addUserRestriction(adminName, UserManager.DISALLOW_CONFIG_TETHERING)
+            dpm.addUserRestriction(adminName, UserManager.DISALLOW_DATA_ROAMING)
+            dpm.addUserRestriction(adminName, UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS)
+            dpm.addUserRestriction(adminName, UserManager.DISALLOW_USB_FILE_TRANSFER)
+            dpm.addUserRestriction(adminName, UserManager.DISALLOW_INSTALL_APPS)
+            dpm.addUserRestriction(adminName, UserManager.DISALLOW_SAFE_BOOT)
+            dpm.addUserRestriction(adminName, UserManager.DISALLOW_CREATE_WINDOWS)
+            
+            // Clear Bluetooth restriction (allow it)
+            dpm.clearUserRestriction(adminName, UserManager.DISALLOW_BLUETOOTH)
+            
+            // Suspend Google Apps (Optional, but requested)
+            // dpm.setPackagesSuspended(adminName, arrayOf("com.android.vending", "com.google.android.gms"), true) 
+        } else {
+            // Fallback for non-provisioned devices (Standard Screen Pinning)
+            // This is less secure but works on normal installs (requires user confirmation once)
+            try {
+                startLockTask()
+            } catch (e: Exception) {
+                // Pinning not available or failed
+            }
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -202,6 +247,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        
+        // Ensure Kiosk Mode lock is active
+        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        if (dpm.isDeviceOwnerApp(packageName)) {
+            try {
+                startLockTask()
+            } catch (e: Exception) {
+                // Ignore if already locked or other minor issues
+            }
+        }
+
         if (::focusModeManager.isInitialized) {
             updateFocusModeUI(focusModeManager.isFocusModeActive)
         }
