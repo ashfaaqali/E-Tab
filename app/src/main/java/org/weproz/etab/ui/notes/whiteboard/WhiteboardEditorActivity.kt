@@ -218,28 +218,17 @@ class WhiteboardEditorActivity : AppCompatActivity() {
     }
 
     private fun saveAsPdf() {
+        // Save current page first to ensure viewModel has latest data
+        saveCurrentPage()
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // 1. Create Bitmap from View
-                val bitmap = createBitmapFromView()
+                val width = binding.whiteboardView.width
+                val height = binding.whiteboardView.height
+                val pages = viewModel.pages.toList()
                 
-                // 2. Create PDF
-                val pdfDocument = PdfDocument()
-                val pageInfo = PdfDocument.PageInfo.Builder(bitmap.width, bitmap.height, 1).create()
-                val page = pdfDocument.startPage(pageInfo)
-                
-                val canvas = page.canvas
-                canvas.drawBitmap(bitmap, 0f, 0f, null)
-                pdfDocument.finishPage(page)
-                
-                // 3. Save to Downloads
-                val pdfDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val pdfFile = File(pdfDir, "${currentTitle.replace(" ", "_")}.pdf")
-                
-                FileOutputStream(pdfFile).use { 
-                    pdfDocument.writeTo(it) 
-                }
-                pdfDocument.close()
+                val exporter = WhiteboardPdfExporter(this@WhiteboardEditorActivity)
+                val pdfFile = exporter.exportToPdf(pages, width, height, currentTitle)
                 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@WhiteboardEditorActivity, "Saved to ${pdfFile.absolutePath}", Toast.LENGTH_LONG).show()
@@ -250,14 +239,6 @@ class WhiteboardEditorActivity : AppCompatActivity() {
                    Toast.makeText(this@WhiteboardEditorActivity, "Failed to save PDF: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
-            }
         }
-
-    private suspend fun createBitmapFromView(): Bitmap = withContext(Dispatchers.Main) {
-        val view = binding.whiteboardView
-        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        view.draw(canvas)
-        bitmap
     }
 }

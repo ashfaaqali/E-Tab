@@ -171,7 +171,9 @@ class WhiteboardView @JvmOverloads constructor(
     // Matrix for Zoom/Pan
     private val drawMatrix = Matrix()
     private val inverseMatrix = Matrix()
-    private val scaleDetector = ScaleGestureDetector(context, ScaleListener())
+    private val scaleDetector = ScaleGestureDetector(context, ScaleListener()).apply {
+        isQuickScaleEnabled = false
+    }
     
     // Panning
     private var lastTouchX = 0f
@@ -219,7 +221,7 @@ class WhiteboardView @JvmOverloads constructor(
         
         if (!isTransparentBackground) {
             // Draw Desk Background (Outside the page)
-            canvas.drawColor(context.getColor(R.color.md_theme_error))
+            canvas.drawColor(context.getColor(R.color.md_theme_outline))
         }
 
         canvas.save()
