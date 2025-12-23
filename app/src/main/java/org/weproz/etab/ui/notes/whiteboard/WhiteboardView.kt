@@ -25,6 +25,11 @@ class WhiteboardView @JvmOverloads constructor(
             // Clear selection when switching tools
             if (value != ToolType.SELECTOR) {
                 selectedTextAction = null
+                selectionBounds = null
+                selectedStrokes.clear()
+                isLassoSelecting = false
+                isDraggingSelection = false
+                lassoPath.reset()
                 invalidate()
             }
         }

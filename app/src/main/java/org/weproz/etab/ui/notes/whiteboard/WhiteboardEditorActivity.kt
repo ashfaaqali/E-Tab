@@ -6,30 +6,27 @@ import android.graphics.Color
 import android.graphics.pdf.PdfDocument
 import android.os.Bundle
 import android.os.Environment
-import android.view.LayoutInflater
+import android.text.SpannableString
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.view.ViewCompat
+import androidx.core.view.size
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
-import org.weproz.etab.data.serializer.WhiteboardSerializer
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.weproz.etab.R
+import org.weproz.etab.data.model.whiteboard.GridType
+import org.weproz.etab.data.model.whiteboard.ParsedPage
+import org.weproz.etab.data.serializer.WhiteboardSerializer
 import org.weproz.etab.databinding.ActivityWhiteboardEditorBinding
 import java.io.File
 import java.io.FileOutputStream
-import androidx.core.view.size
-
-import org.weproz.etab.data.model.whiteboard.GridType
-import org.weproz.etab.data.model.whiteboard.ParsedPage
+import androidx.core.view.get
 
 @AndroidEntryPoint
 class WhiteboardEditorActivity : AppCompatActivity() {
@@ -161,10 +158,10 @@ class WhiteboardEditorActivity : AppCompatActivity() {
 
     override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
         for (i in 0 until (menu?.size ?: 0)) {
-            val item = menu?.getItem(i)
-            val spanString = android.text.SpannableString(item?.title.toString())
+            val item = menu?.get(i)
+            val spanString = SpannableString(item?.title.toString())
             spanString.setSpan(
-                android.text.style.ForegroundColorSpan(android.graphics.Color.BLACK),
+                android.text.style.ForegroundColorSpan(Color.BLACK),
                 0,
                 spanString.length,
                 0

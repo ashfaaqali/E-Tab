@@ -21,6 +21,7 @@ import org.weproz.etab.data.local.entity.HighlightEntity
 import org.weproz.etab.data.model.whiteboard.DrawAction
 import org.weproz.etab.databinding.ActivityReaderBinding
 import org.weproz.etab.ui.custom.CustomDialog
+import org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
 import org.weproz.etab.ui.search.DefinitionDialogFragment
 import java.io.FileInputStream
 
@@ -173,7 +174,7 @@ class ReaderActivity : AppCompatActivity() {
         if (isSplitView) {
             // Save whiteboard before closing
             val fragment =
-                supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? org.weproz.etab.ui.notes.whiteboard.WhiteboardFragment
+                supportFragmentManager.findFragmentById(R.id.whiteboard_container) as? WhiteboardFragment
             fragment?.saveWhiteboard()
 
             // Restore Full Screen

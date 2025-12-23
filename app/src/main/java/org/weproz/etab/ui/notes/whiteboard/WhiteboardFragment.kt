@@ -1,12 +1,9 @@
 package org.weproz.etab.ui.notes.whiteboard
 
-import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
-import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -14,14 +11,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.weproz.etab.R
 import org.weproz.etab.data.local.database.AppDatabase
 import org.weproz.etab.data.local.entity.WhiteboardEntity
 import org.weproz.etab.data.model.whiteboard.GridType
 import org.weproz.etab.data.model.whiteboard.ParsedPage
 import org.weproz.etab.data.serializer.WhiteboardSerializer
 import org.weproz.etab.databinding.FragmentWhiteboardEditorBinding
-import org.weproz.etab.ui.custom.CustomDialog
 import java.io.File
 import java.io.FileOutputStream
 
@@ -100,35 +95,16 @@ class WhiteboardFragment : Fragment() {
     }
 
     private fun setupTools() {
-        binding.btnToolBrush.setOnClickListener { showBrushSettingsDialog() }
-        binding.btnToolLasso.setOnClickListener { 
-            binding.whiteboardView.setTool(WhiteboardView.ToolType.SELECTOR)
-            android.widget.Toast.makeText(requireContext(), "Lasso Tool Selected", android.widget.Toast.LENGTH_SHORT).show()
-        }
-        binding.btnToolText.setOnClickListener { showAddTextDialog() }
-        binding.btnToolGrid.setOnClickListener { showGridTypeDialog() }
-        binding.btnToolUndo.setOnClickListener { binding.whiteboardView.undo() }
-        binding.btnToolRedo.setOnClickListener { binding.whiteboardView.redo() }
+        binding.whiteboardToolbar.attachTo(binding.whiteboardView)
         
-        binding.btnToolClear.setOnClickListener { showClearConfirmationDialog() }
-        
-        binding.btnNewDoc.setOnClickListener {
-            createNewDocument()
+        binding.btnSave.setOnClickListener {
+            saveCurrentPage()
+            saveWhiteboard()
+            android.widget.Toast.makeText(requireContext(), "Saved", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
     
-    private fun showClearConfirmationDialog() {
-        CustomDialog(requireContext())
-            .setTitle("Clear Whiteboard")
-            .setMessage("Are you sure you want to clear the entire whiteboard? This cannot be undone.")
-            .setPositiveButton("Clear") { dialog ->
-                binding.whiteboardView.clear()
-                binding.whiteboardView.onActionCompleted?.invoke()
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel")
-            .show()
-    }
+
     
     private fun setupPageNavigation() {
         binding.btnPrevPage.setOnClickListener {
@@ -216,128 +192,6 @@ class WhiteboardFragment : Fragment() {
                 }
             }
         }
-    }
-
-    private fun showBrushSettingsDialog() {
-        val context = requireContext()
-        val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_brush_settings, null)
-        val dialog = AlertDialog.Builder(context)
-            .setView(dialogView)
-            .create()
-
-        val radioPen = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_pen)
-        val radioHighlighter = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_highlighter)
-        val radioEraser = dialogView.findViewById<android.widget.RadioButton>(R.id.radio_eraser)
-        val containerColors = dialogView.findViewById<android.widget.LinearLayout>(R.id.container_colors)
-        val seekSize = dialogView.findViewById<android.widget.SeekBar>(R.id.seek_size)
-        val groupTool = dialogView.findViewById<android.widget.RadioGroup>(R.id.group_tool_type)
-        
-        // Initial State
-        val isEraser = binding.whiteboardView.isEraser
-        val isHighlighter = binding.whiteboardView.isHighlighter
-        
-        if (isEraser) {
-            radioEraser.isChecked = true
-            containerColors.alpha = 0.5f 
-            containerColors.isEnabled = false 
-        } else if (isHighlighter) {
-            radioHighlighter.isChecked = true
-            containerColors.alpha = 1.0f
-        } else {
-            radioPen.isChecked = true
-            containerColors.alpha = 1.0f
-        }
-        
-        seekSize.progress = binding.whiteboardView.getStrokeWidth().toInt()
-        
-         groupTool.setOnCheckedChangeListener { _, checkedId ->
-             when (checkedId) {
-                 R.id.radio_eraser -> {
-                     binding.whiteboardView.setEraser()
-                     binding.whiteboardView.isHighlighter = false
-                     containerColors.alpha = 0.5f
-                 }
-                 R.id.radio_highlighter -> {
-                     binding.whiteboardView.setPenColor(binding.whiteboardView.drawColor)
-                     binding.whiteboardView.isHighlighter = true
-                     containerColors.alpha = 1.0f
-                 }
-                 else -> { // Pen
-                     binding.whiteboardView.setPenColor(binding.whiteboardView.drawColor)
-                     binding.whiteboardView.isHighlighter = false
-                     containerColors.alpha = 1.0f
-                 }
-             }
-        }
-
-        seekSize.setOnSeekBarChangeListener(object: android.widget.SeekBar.OnSeekBarChangeListener {
-             override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
-                 val size = progress.coerceAtLeast(1).toFloat()
-                 binding.whiteboardView.setStrokeWidthGeneric(size)
-             }
-             override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
-             override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
-        })
-        
-        val colors = intArrayOf(Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.CYAN, Color.YELLOW)
-        val currentColor = binding.whiteboardView.drawColor
-        
-        for (color in colors) {
-             val view = android.view.View(context)
-             val params = android.widget.LinearLayout.LayoutParams(60, 60)
-             params.setMargins(8, 0, 8, 0)
-             view.layoutParams = params
-             view.setBackgroundColor(color)
-             val shape = android.graphics.drawable.GradientDrawable()
-             shape.shape = android.graphics.drawable.GradientDrawable.OVAL
-             shape.setColor(color)
-             
-             if (color == currentColor) {
-                 shape.setStroke(6, Color.DKGRAY)
-             } else {
-                 shape.setStroke(2, Color.DKGRAY)
-             }
-             
-             view.background = shape
-             
-             view.setOnClickListener {
-                 if (!radioEraser.isChecked) {
-                     binding.whiteboardView.setPenColor(color)
-                     dialog.dismiss()
-                 }
-             }
-             containerColors.addView(view)
-        }
-        
-        dialog.show()
-    }
-
-    private fun showGridTypeDialog() {
-        val types = arrayOf("None", "Dot", "Square", "Ruled")
-        val typeValues = arrayOf(GridType.NONE, GridType.DOT, GridType.SQUARE, GridType.RULED)
-        
-        AlertDialog.Builder(requireContext())
-            .setTitle("Select Grid Type")
-            .setItems(types) { _, which ->
-                binding.whiteboardView.gridType = typeValues[which]
-            }
-            .show()
-    }
-
-    private fun showAddTextDialog() {
-        val editText = EditText(requireContext())
-        CustomDialog(requireContext())
-            .setTitle("Add Text")
-            .setView(editText)
-            .setPositiveButton("Add") { dialog ->
-                val text = editText.text.toString()
-                if (text.isNotEmpty()) {
-                    binding.whiteboardView.addText(text)
-                    dialog.dismiss()
-                }
-            }
-            .setNegativeButton("Cancel")
-            .show()
     }
 
     fun saveWhiteboard() {
