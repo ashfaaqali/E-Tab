@@ -200,17 +200,21 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
         binding.annotationView.isTransparentBackground = true
         binding.whiteboardToolbar.attachTo(binding.annotationView)
         
+        // Initialize state: Visible but not interactive
+        binding.annotationView.visibility = View.VISIBLE
+        binding.annotationView.isTouchEnabled = false
+        
         binding.btnAnnotateToggle.setOnClickListener {
             val isVisible = binding.whiteboardToolbar.visibility == View.VISIBLE
             if (isVisible) {
-                // Hide tools, disable annotation
+                // Hide tools, disable annotation interaction
                 binding.whiteboardToolbar.visibility = View.GONE
-                binding.annotationView.visibility = View.GONE
+                binding.annotationView.isTouchEnabled = false
                 binding.btnAnnotateToggle.setColorFilter(Color.WHITE)
             } else {
-                // Show tools, enable annotation
+                // Show tools, enable annotation interaction
                 binding.whiteboardToolbar.visibility = View.VISIBLE
-                binding.annotationView.visibility = View.VISIBLE
+                binding.annotationView.isTouchEnabled = true
                 binding.btnAnnotateToggle.setColorFilter(Color.YELLOW) // Active indicator
             }
         }
@@ -305,19 +309,32 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
     }
 
     override fun onPageChanged(pageNumber: Int, totalPages: Int) {
-        // Save previous page
-        if (currentPage != pageNumber) {
-             pageAnnotations[currentPage] = binding.annotationView.getPaths().toList()
-        }
-        
-        this.currentPage = pageNumber
-        this.totalPages = totalPages
-        
-        // Load new page
-        val actions = pageAnnotations[pageNumber] ?: emptyList()
-        binding.annotationView.loadPaths(actions)
-
         runOnUiThread {
+            // Save previous page
+            if (currentPage != pageNumber) {
+                 pageAnnotations[currentPage] = binding.annotationView.getPaths().toList()
+            }
+            
+            this.currentPage = pageNumber
+            this.totalPages = totalPages
+            
+            // Update view's current page
+            binding.annotationView.currentPage = pageNumber
+            
+            // Reset clip bounds to avoid stale clipping from previous page
+            binding.annotationView.setPdfClipBounds(null)
+            
+            // Load new page
+            val actions = pageAnnotations[pageNumber] ?: emptyList()
+            // Ensure actions belong to this page (handling legacy or migration)
+            actions.forEach { action ->
+                when(action) {
+                    is DrawAction.Stroke -> action.page = pageNumber
+                    is DrawAction.Text -> action.page = pageNumber
+                }
+            }
+            binding.annotationView.loadPaths(actions)
+
             binding.textPageIndicator.text = "Page $pageNumber of $totalPages"
             if (totalPages > 0) {
                 binding.pageSlider.max = totalPages - 1
@@ -483,7 +500,15 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
                 right * density,
                 bottom * density
             )
-            binding.annotationView.setClipBounds(rect)
+            // Log for debugging
+            // android.util.Log.d("PdfReaderActivity", "onPageBounds: $rect")
+            binding.annotationView.setPdfClipBounds(rect)
+        }
+    }
+
+    override fun onSyncScroll(x: Float, y: Float, scale: Float, page: Int) {
+        runOnUiThread {
+            binding.annotationView.syncView(x, y, scale, page)
         }
     }
 

@@ -108,15 +108,19 @@ class ReaderActivity : AppCompatActivity() {
         binding.annotationView.isTransparentBackground = true
         binding.whiteboardToolbar.attachTo(binding.annotationView)
         
+        // Initialize state
+        binding.annotationView.visibility = View.VISIBLE
+        binding.annotationView.isTouchEnabled = false
+        
         binding.btnAnnotateToggle.setOnClickListener {
             val isVisible = binding.whiteboardToolbar.visibility == View.VISIBLE
             if (isVisible) {
                 binding.whiteboardToolbar.visibility = View.GONE
-                binding.annotationView.visibility = View.GONE
+                binding.annotationView.isTouchEnabled = false
                 binding.btnAnnotateToggle.setColorFilter(Color.WHITE)
             } else {
                 binding.whiteboardToolbar.visibility = View.VISIBLE
-                binding.annotationView.visibility = View.VISIBLE
+                binding.annotationView.isTouchEnabled = true
                 binding.btnAnnotateToggle.setColorFilter(Color.YELLOW)
             }
         }
@@ -586,6 +590,13 @@ class ReaderActivity : AppCompatActivity() {
         fun onToggleControls() {
             runOnUiThread {
                 showNavigation()
+            }
+        }
+
+        @JavascriptInterface
+        fun onSyncScroll(x: Float, y: Float, scale: Float) {
+            runOnUiThread {
+                binding.annotationView.syncView(x, y, scale)
             }
         }
     }

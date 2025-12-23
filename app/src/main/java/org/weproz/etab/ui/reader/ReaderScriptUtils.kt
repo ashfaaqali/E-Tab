@@ -222,24 +222,30 @@ object ReaderScriptUtils {
                     
                     if (pageView && pageView.div) {
                         var rect = pageView.div.getBoundingClientRect();
-                        // Send bounds relative to viewport
-                        // Note: getBoundingClientRect returns values in CSS pixels.
-                        // Android WebView density scaling handles the conversion if we use density-independent pixels on Android side?
-                        // Actually, WebView.getScale() is deprecated.
-                        // The values from JS are in CSS pixels.
-                        // Android side needs to know the density to convert if the WebView is scaled.
-                        // But wait, WebView handles the scaling. 
-                        // If I send CSS pixels, and on Android side I multiply by density, it should match the view coordinates.
-                        Android.onPageBounds(rect.left, rect.top, rect.right, rect.bottom);
+                        // Only send if valid dimensions
+                        if (rect.width > 0 && rect.height > 0) {
+                            Android.onPageBounds(rect.left, rect.top, rect.right, rect.bottom);
+                        }
                     }
                 }
 
                 window.PDFViewerApplication.eventBus.on('pagesinit', function() {
+                    // Force Page Scroll Mode (3) to disable continuous scrolling
+                    if (window.PDFViewerApplication.pdfViewer) {
+                        window.PDFViewerApplication.pdfViewer.scrollMode = 3;
+                        window.PDFViewerApplication.pdfViewer.currentScaleValue = 'page-fit';
+                    }
                     updatePage(window.PDFViewerApplication.page, window.PDFViewerApplication.pagesCount);
                 });
                 
                 window.PDFViewerApplication.eventBus.on('pagechanging', function(evt) {
                     updatePage(evt.pageNumber, window.PDFViewerApplication.pagesCount);
+                });
+                
+                window.PDFViewerApplication.eventBus.on('pagerendered', function(evt) {
+                    if (evt.pageNumber === window.PDFViewerApplication.page) {
+                        updatePageBounds();
+                    }
                 });
                 
                 window.PDFViewerApplication.eventBus.on('scalechanging', function(evt) {
@@ -372,16 +378,8 @@ object ReaderScriptUtils {
 
                 if (window.getSelection().toString().length > 0) return;
                 
-                var width = window.innerWidth;
-                var x = e.clientX;
-                
-                if (x < width * 0.25) {
-                    Android.onPrevPage();
-                } else if (x > width * 0.75) {
-                    Android.onNextPage();
-                } else {
-                    Android.onToggleControls();
-                }
+                // Only toggle controls, no navigation on tap
+                Android.onToggleControls();
             });
 
             window.defineWord = function() {
@@ -565,6 +563,78 @@ object ReaderScriptUtils {
                 document.getElementById('custom-menu').style.display = 'none';
                 resetMenuButtons();
             };
+
+            // Sync Scroll for PDF.js
+            function setupSync() {
+                var scrollContainer = document.getElementById('viewerContainer');
+                
+                // Fallback: Find the main scrolling element if viewerContainer is not it
+                if (!scrollContainer || getComputedStyle(scrollContainer).overflow === 'hidden') {
+                     // Try to find an element with overflow auto/scroll
+                     var candidates = document.querySelectorAll('div');
+                     for (var i = 0; i < candidates.length; i++) {
+                         var style = getComputedStyle(candidates[i]);
+                         if ((style.overflow === 'auto' || style.overflow === 'scroll' || style.overflowY === 'auto' || style.overflowY === 'scroll') && candidates[i].scrollHeight > candidates[i].clientHeight) {
+                             scrollContainer = candidates[i];
+                             break;
+                         }
+                     }
+                }
+                
+                // Fallback to window if no container found
+                var useWindow = !scrollContainer;
+
+                if (!scrollContainer && !document.body) {
+                    setTimeout(setupSync, 500); // Retry if DOM not ready
+                    return;
+                }
+
+                var lastX = -1, lastY = -1, lastScale = -1, lastPage = -1;
+                function sync() {
+                    var x = useWindow ? (window.scrollX || window.pageXOffset) : scrollContainer.scrollLeft;
+                    var y = useWindow ? (window.scrollY || window.pageYOffset) : scrollContainer.scrollTop;
+                    
+                    // Check visual viewport for pinch-zoom offset
+                    if (window.visualViewport) {
+                        x += window.visualViewport.offsetLeft;
+                        y += window.visualViewport.offsetTop;
+                    }
+
+                    var scale = (window.PDFViewerApplication && window.PDFViewerApplication.pdfViewer) ? window.PDFViewerApplication.pdfViewer.currentScale : 1.0;
+                    var page = (window.PDFViewerApplication) ? window.PDFViewerApplication.page : 1;
+                    
+                    // Send raw values, let Android handle density
+                    if (Math.abs(x - lastX) > 1 || Math.abs(y - lastY) > 1 || Math.abs(scale - lastScale) > 0.01 || page !== lastPage) {
+                        lastX = x; lastY = y; lastScale = scale; lastPage = page;
+                        if (window.Android && window.Android.onSyncScroll) {
+                            window.Android.onSyncScroll(x, y, scale, page);
+                        }
+                        // Also update bounds on scroll/zoom
+                        if (typeof updatePageBounds === 'function') {
+                            updatePageBounds();
+                        }
+                    }
+                }
+                
+                if (scrollContainer) {
+                    scrollContainer.addEventListener('scroll', sync);
+                }
+                window.addEventListener('scroll', sync, true); // Capture phase to catch all
+                
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('scroll', sync);
+                    window.visualViewport.addEventListener('resize', sync);
+                }
+                
+                document.addEventListener('webviewerzoomchanged', function(e) {
+                    sync();
+                });
+                
+                // Initial sync
+                setTimeout(sync, 100);
+                setInterval(sync, 100); // Polling fallback (faster)
+            }
+            setupSync();
     """
 
     const val EPUB_JS_INJECTION = """
@@ -754,16 +824,8 @@ object ReaderScriptUtils {
 
                     if (window.getSelection().toString().length > 0) return;
                     
-                    var width = window.innerWidth;
-                    var x = e.clientX;
-                    
-                    if (x < width * 0.25) {
-                        Android.onPrevPage();
-                    } else if (x > width * 0.75) {
-                        Android.onNextPage();
-                    } else {
-                        Android.onToggleControls();
-                    }
+                    // Only toggle controls, no navigation on tap
+                    Android.onToggleControls();
                 });
 
                 function defineWord() {
@@ -892,6 +954,37 @@ object ReaderScriptUtils {
                     resetMenuButtons();
                     clickedHighlight = null;
                 }
+
+            // Sync Scroll for EPUB
+            var lastX = -1, lastY = -1, lastScale = -1;
+            function sync() {
+                var x = window.scrollX || window.pageXOffset || document.documentElement.scrollLeft;
+                var y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+                var scale = window.visualViewport ? window.visualViewport.scale : 1.0;
+                
+                if (Math.abs(x - lastX) > 1 || Math.abs(y - lastY) > 1 || Math.abs(scale - lastScale) > 0.01) {
+                    lastX = x; lastY = y; lastScale = scale;
+                    if (window.Android && window.Android.onSyncScroll) {
+                        window.Android.onSyncScroll(x, y, scale);
+                    }
+                }
+            }
+            window.addEventListener('scroll', sync);
+            window.addEventListener('resize', sync);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', sync);
+                window.visualViewport.addEventListener('scroll', sync);
+            }
+            // Initial sync
+            setTimeout(sync, 500);
+            setInterval(sync, 100); // Polling fallback (faster)
+            
+            // Poll for page bounds as well to ensure clipping is correct
+            setInterval(function() {
+                if (typeof updatePageBounds === 'function') {
+                    updatePageBounds();
+                }
+            }, 200);
             </script>
     """
 }

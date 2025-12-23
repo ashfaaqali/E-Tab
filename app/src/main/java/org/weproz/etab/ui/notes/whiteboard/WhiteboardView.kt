@@ -60,13 +60,53 @@ class WhiteboardView @JvmOverloads constructor(
     var drawColor = Color.BLACK
     var isHighlighter = false
     var isTransparentBackground = false
+    var currentPage: Int = 1
     
     // Clipping bounds for PDF annotation
     private var clipBoundsRect: RectF? = null
     
-    fun setClipBounds(rect: RectF?) {
+    // Store sync values
+    private var lastScrollX = 0f
+    private var lastScrollY = 0f
+    private var lastScale = 1f
+    
+    fun setPdfClipBounds(rect: RectF?) {
+        // Ignore invalid/empty rects to prevent accidental hiding of content
+        if (rect != null && (rect.width() <= 1f || rect.height() <= 1f)) {
+            return
+        }
         clipBoundsRect = rect
+        updateMatrix()
         invalidate()
+    }
+
+    fun syncView(scrollX: Float, scrollY: Float, scale: Float, page: Int = 1) {
+        currentPage = page
+        lastScrollX = scrollX
+        lastScrollY = scrollY
+        lastScale = scale
+        
+        updateMatrix()
+        invalidate()
+    }
+    
+    private fun updateMatrix() {
+        val density = resources.displayMetrics.density
+        drawMatrix.reset()
+        
+        if (clipBoundsRect != null) {
+            // PDF Mode: Anchor to the page bounds (which are viewport-relative)
+            // Origin (0,0) is the top-left of the page
+            drawMatrix.postScale(lastScale, lastScale)
+            drawMatrix.postTranslate(clipBoundsRect!!.left, clipBoundsRect!!.top)
+        } else {
+            // EPUB Mode: Anchor to the scroll offset
+            // Origin (0,0) is the top-left of the document
+            drawMatrix.postScale(lastScale, lastScale)
+            drawMatrix.postTranslate(-lastScrollX * density, -lastScrollY * density)
+        }
+        
+        drawMatrix.invert(inverseMatrix)
     }
     
     private val effectiveDrawColor: Int
@@ -102,6 +142,8 @@ class WhiteboardView @JvmOverloads constructor(
             field = value
             invalidate()
         }
+
+    var isTouchEnabled: Boolean = true
         
     private val gridPaint = Paint().apply {
         color = Color.LTGRAY
@@ -159,9 +201,11 @@ class WhiteboardView @JvmOverloads constructor(
             PAGE_HEIGHT = h.toFloat()
             pageRect.set(0f, 0f, PAGE_WIDTH, PAGE_HEIGHT)
             
-            // Reset matrix (1:1 scale initially)
-            drawMatrix.reset()
-            drawMatrix.invert(inverseMatrix)
+            // Only reset matrix if not transparent (overlay mode handles its own matrix via syncView)
+            if (!isTransparentBackground) {
+                drawMatrix.reset()
+                drawMatrix.invert(inverseMatrix)
+            }
         }
     }
 
@@ -174,6 +218,15 @@ class WhiteboardView @JvmOverloads constructor(
         }
 
         canvas.save()
+        
+        // Clip to Page Bounds for content (Screen Space for Overlay)
+        if (isTransparentBackground) {
+            if (clipBoundsRect != null) {
+                canvas.clipRect(clipBoundsRect!!)
+            }
+            // For EPUB (clipBoundsRect == null), we don't clip or clip to view bounds implicitly
+        }
+        
         canvas.concat(drawMatrix) // Apply zoom/pan transformation
         
         if (!isTransparentBackground) {
@@ -191,14 +244,8 @@ class WhiteboardView @JvmOverloads constructor(
                 style = Paint.Style.FILL
             }
             canvas.drawRect(pageRect, pagePaint)
-        }
-
-        // Clip to Page Bounds for content
-        if (isTransparentBackground) {
-            clipBoundsRect?.let { rect ->
-                canvas.clipRect(rect)
-            }
-        } else {
+            
+            // Clip to Page Bounds (Document Space for Standalone)
             canvas.clipRect(pageRect)
         }
         
@@ -213,6 +260,15 @@ class WhiteboardView @JvmOverloads constructor(
         val saveCount = canvas.saveLayer(null, null)
 
         for (action in paths) {
+            // Filter by page if in overlay mode
+            if (isTransparentBackground) {
+                val actionPage = when(action) {
+                    is DrawAction.Stroke -> action.page
+                    is DrawAction.Text -> action.page
+                }
+                if (actionPage != currentPage) continue
+            }
+
             when (action) {
                 is DrawAction.Stroke -> {
                     drawPaint.strokeWidth = action.strokeWidth
@@ -339,18 +395,42 @@ class WhiteboardView @JvmOverloads constructor(
     private var lastDragY = 0f
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        scaleDetector.onTouchEvent(event)
+        if (!isTouchEnabled) return false
+
+        // Disable internal zoom/pan when used as an overlay (transparent background)
+        if (!isTransparentBackground) {
+            scaleDetector.onTouchEvent(event)
+        }
         
         // Convert touch coordinates to canvas coordinates
+        // IMPORTANT: When in overlay mode, we want to draw in the transformed coordinate space
+        // so that when the matrix shifts (scrolls), the drawing stays relative to the content.
+        // inverseMatrix handles this mapping from screen pixels to canvas coordinates.
+        
+        // Limit interaction to clip bounds if set (PDF Overlay)
+        if (isTransparentBackground && clipBoundsRect != null) {
+            // Allow a small margin for edge cases
+            val margin = 0f
+            val rect = clipBoundsRect!!
+            if (event.x < rect.left - margin || event.x > rect.right + margin || 
+                event.y < rect.top - margin || event.y > rect.bottom + margin) {
+                
+                // If starting outside, ignore
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    return false
+                }
+            }
+        }
+
         val points = floatArrayOf(event.x, event.y)
         inverseMatrix.mapPoints(points)
         
-        // Clamp to Page Bounds
-        val canvasX = points[0].coerceIn(0f, PAGE_WIDTH)
-        val canvasY = points[1].coerceIn(0f, PAGE_HEIGHT)
+        // Use coordinates directly without clamping to allow drawing anywhere
+        val canvasX = points[0]
+        val canvasY = points[1]
 
-        // Two fingers -> Pan/Zoom
-        if (event.pointerCount > 1) {
+        // Two fingers -> Pan/Zoom (Only if not transparent)
+        if (!isTransparentBackground && event.pointerCount > 1) {
             isPanning = true 
             // Reset text dragging if any
             if (isDraggingText) {
@@ -521,6 +601,7 @@ class WhiteboardView @JvmOverloads constructor(
                     // Drawing
                     val lastPoint = currentPoints.lastOrNull()
                     if (lastPoint != null) {
+                        // Use raw distance check to avoid excessive points
                         val dx = abs(canvasX - lastPoint.first)
                         val dy = abs(canvasY - lastPoint.second)
                         if (dx >= 4 || dy >= 4) {
@@ -556,7 +637,8 @@ class WhiteboardView @JvmOverloads constructor(
                             ArrayList(currentPoints),
                             if (currentTool == ToolType.ERASER) Color.TRANSPARENT else effectiveDrawColor,
                             currentStrokeWidth,
-                            currentTool == ToolType.ERASER
+                            currentTool == ToolType.ERASER,
+                            currentPage
                         )
                         paths.add(stroke)
                         currentPath.reset()
@@ -611,7 +693,7 @@ class WhiteboardView @JvmOverloads constructor(
         val x = center[0].coerceIn(50f, PAGE_WIDTH - 50f)
         val y = center[1].coerceIn(50f, PAGE_HEIGHT - 50f)
         
-        val newText = DrawAction.Text(text, x, y, drawColor, 60f)
+        val newText = DrawAction.Text(text, x, y, drawColor, 60f, currentPage)
         paths.add(newText)
         selectedTextAction = newText // Auto-select
         invalidate()
