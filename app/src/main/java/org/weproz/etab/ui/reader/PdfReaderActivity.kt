@@ -47,7 +47,7 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
     
     // Annotation Persistence
     private val pageAnnotations = mutableMapOf<Int, List<DrawAction>>()
-    private var currentPage = 1
+    private var currentPage = -1
     private var totalPages = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -310,30 +310,33 @@ class PdfReaderActivity : AppCompatActivity(), PdfReaderBridge {
 
     override fun onPageChanged(pageNumber: Int, totalPages: Int) {
         runOnUiThread {
-            // Save previous page
-            if (currentPage != pageNumber) {
+            // Save previous page (or current page if reloading)
+            if (currentPage != -1) {
                  pageAnnotations[currentPage] = binding.annotationView.getPaths().toList()
             }
             
+            val isSamePage = currentPage == pageNumber
             this.currentPage = pageNumber
             this.totalPages = totalPages
             
             // Update view's current page
             binding.annotationView.currentPage = pageNumber
             
-            // Reset clip bounds to avoid stale clipping from previous page
-            binding.annotationView.setPdfClipBounds(null)
-            
-            // Load new page
-            val actions = pageAnnotations[pageNumber] ?: emptyList()
-            // Ensure actions belong to this page (handling legacy or migration)
-            actions.forEach { action ->
-                when(action) {
-                    is DrawAction.Stroke -> action.page = pageNumber
-                    is DrawAction.Text -> action.page = pageNumber
+            if (!isSamePage) {
+                // Reset clip bounds to avoid stale clipping from previous page
+                binding.annotationView.setPdfClipBounds(null)
+                
+                // Load new page
+                val actions = pageAnnotations[pageNumber] ?: emptyList()
+                // Ensure actions belong to this page (handling legacy or migration)
+                actions.forEach { action ->
+                    when(action) {
+                        is DrawAction.Stroke -> action.page = pageNumber
+                        is DrawAction.Text -> action.page = pageNumber
+                    }
                 }
+                binding.annotationView.loadPaths(actions)
             }
-            binding.annotationView.loadPaths(actions)
 
             binding.textPageIndicator.text = "Page $pageNumber of $totalPages"
             if (totalPages > 0) {

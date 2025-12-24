@@ -228,6 +228,7 @@ object ReaderScriptUtils {
                         }
                     }
                 }
+                window.updatePageBounds = updatePageBounds;
 
                 window.PDFViewerApplication.eventBus.on('pagesinit', function() {
                     // Force Page Scroll Mode (3) to disable continuous scrolling
@@ -249,7 +250,10 @@ object ReaderScriptUtils {
                 });
                 
                 window.PDFViewerApplication.eventBus.on('scalechanging', function(evt) {
-                    setTimeout(updatePageBounds, 100); // Wait for render
+                    setTimeout(function() {
+                        updatePageBounds();
+                        if (window.syncPdfView) window.syncPdfView();
+                    }, 100); // Wait for render
                 });
                 
                 // Also update on scroll
@@ -610,11 +614,12 @@ object ReaderScriptUtils {
                             window.Android.onSyncScroll(x, y, scale, page);
                         }
                         // Also update bounds on scroll/zoom
-                        if (typeof updatePageBounds === 'function') {
-                            updatePageBounds();
+                        if (typeof window.updatePageBounds === 'function') {
+                            window.updatePageBounds();
                         }
                     }
                 }
+                window.syncPdfView = sync;
                 
                 if (scrollContainer) {
                     scrollContainer.addEventListener('scroll', sync);
