@@ -12,13 +12,8 @@ import kotlinx.coroutines.launch
 import org.weproz.etab.data.local.database.AppDatabase
 import org.weproz.etab.data.local.entity.BookEntity
 import org.weproz.etab.data.local.entity.DictionaryEntry
-import org.weproz.etab.data.local.database.WordDatabase
 import org.weproz.etab.data.repository.BookRepository
-import org.weproz.etab.data.repository.DictionaryRepository
 import java.io.File
-
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 
 sealed class SearchItem {
     data class BookItem(val book: BookEntity) : SearchItem()

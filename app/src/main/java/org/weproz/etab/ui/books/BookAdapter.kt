@@ -11,7 +11,7 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.lifecycle.LifecycleOwner
+import androidx.core.graphics.createBitmap
 import androidx.lifecycle.findViewTreeLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
@@ -26,6 +26,7 @@ import org.weproz.etab.data.local.entity.BookType
 import org.weproz.etab.data.local.entity.DictionaryEntry
 import java.io.File
 import java.io.FileInputStream
+import androidx.core.graphics.toColorInt
 
 class BookAdapter(
     private val onBookClick: (BookEntity) -> Unit,
@@ -142,7 +143,7 @@ class BookAdapter(
             updateTimestamp(book)
             
             if (book.isFavorite) {
-                favButton.setColorFilter(Color.parseColor("#FFD700"))
+                favButton.setColorFilter("#FFD700".toColorInt())
                 favButton.setImageResource(android.R.drawable.btn_star_big_on)
             } else {
                 favButton.clearColorFilter()
@@ -226,7 +227,7 @@ class BookAdapter(
                         // Create thumbnail bitmap
                         val width = 200
                         val height = (200f * page.height / page.width).toInt()
-                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        val bitmap = createBitmap(width, height)
                         bitmap.eraseColor(Color.WHITE)
                         
                         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)

@@ -5,13 +5,13 @@ import android.graphics.Color
 import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.RadioGroup
 import android.widget.SeekBar
-import android.widget.EditText
+import androidx.core.graphics.drawable.toDrawable
 import com.google.android.material.card.MaterialCardView
 import org.weproz.etab.R
 import org.weproz.etab.data.model.whiteboard.GridType
@@ -100,13 +100,13 @@ class WhiteboardToolbarView @JvmOverloads constructor(
 
     private fun showPenSettingsPopup(anchor: View) {
         val view = LayoutInflater.from(context).inflate(R.layout.popup_pen_settings, null)
-        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        val popup = PopupWindow(view, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, true)
         popup.elevation = 10f
-        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        popup.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
         
         val containerColors = view.findViewById<LinearLayout>(R.id.container_colors)
         val seekSize = view.findViewById<SeekBar>(R.id.seek_size)
-        val groupType = view.findViewById<android.widget.RadioGroup>(R.id.group_pen_type)
+        val groupType = view.findViewById<RadioGroup>(R.id.group_pen_type)
         
         val wb = whiteboardView ?: return
         
@@ -137,7 +137,7 @@ class WhiteboardToolbarView @JvmOverloads constructor(
         
         for (color in colors) {
              val colorView = View(context)
-             val params = LinearLayout.LayoutParams(60, 60)
+             val params = LayoutParams(60, 60)
              params.setMargins(8, 0, 8, 0)
              colorView.layoutParams = params
              
@@ -165,9 +165,9 @@ class WhiteboardToolbarView @JvmOverloads constructor(
     
     private fun showEraserSettingsPopup(anchor: View) {
         val view = LayoutInflater.from(context).inflate(R.layout.popup_eraser_settings, null)
-        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        val popup = PopupWindow(view, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, true)
         popup.elevation = 10f
-        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        popup.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
         
         val seekSize = view.findViewById<SeekBar>(R.id.seek_size)
         val wb = whiteboardView ?: return
@@ -187,9 +187,9 @@ class WhiteboardToolbarView @JvmOverloads constructor(
 
     private fun showGridSettingsPopup(anchor: View) {
         val view = LayoutInflater.from(context).inflate(R.layout.popup_grid_settings, null)
-        val popup = PopupWindow(view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        val popup = PopupWindow(view, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, true)
         popup.elevation = 10f
-        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        popup.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
         
         val group = view.findViewById<RadioGroup>(R.id.group_grid_type)
         val wb = whiteboardView ?: return

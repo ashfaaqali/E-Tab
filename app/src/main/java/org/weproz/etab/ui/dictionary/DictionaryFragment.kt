@@ -11,7 +11,6 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import org.weproz.etab.R
 import org.weproz.etab.databinding.FragmentDictionaryBinding
 import org.weproz.etab.ui.search.SearchActivity
 

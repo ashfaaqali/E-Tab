@@ -3,7 +3,6 @@ package org.weproz.etab.ui.books
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -15,12 +14,11 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.weproz.etab.data.local.entity.BookEntity
 import org.weproz.etab.data.local.entity.BookType
 import org.weproz.etab.databinding.FragmentBooksBinding
@@ -209,7 +207,7 @@ class BooksFragment : Fragment() {
                 try {
                     val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                     intent.addCategory("android.intent.category.DEFAULT")
-                    intent.data = Uri.parse(String.format("package:%s", requireContext().packageName))
+                    intent.data = String.format("package:%s", requireContext().packageName).toUri()
                     startActivityForResult(intent, 2296)
                 } catch (e: Exception) {
                     val intent = Intent()
