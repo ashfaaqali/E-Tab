@@ -310,6 +310,9 @@ class ReaderActivity : AppCompatActivity() {
             allowFileAccessFromFileURLs = true
             allowUniversalAccessFromFileURLs = true
             loadsImagesAutomatically = true
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
         }
 
         binding.webview.addJavascriptInterface(WebAppInterface(), "Android")

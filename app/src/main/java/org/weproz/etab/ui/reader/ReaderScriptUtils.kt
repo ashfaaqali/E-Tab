@@ -965,6 +965,13 @@ object ReaderScriptUtils {
             function sync() {
                 var x = window.scrollX || window.pageXOffset || document.documentElement.scrollLeft;
                 var y = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+                
+                // Check visual viewport for pinch-zoom offset
+                if (window.visualViewport) {
+                    x += window.visualViewport.offsetLeft;
+                    y += window.visualViewport.offsetTop;
+                }
+
                 var scale = window.visualViewport ? window.visualViewport.scale : 1.0;
                 
                 if (Math.abs(x - lastX) > 1 || Math.abs(y - lastY) > 1 || Math.abs(scale - lastScale) > 0.01) {

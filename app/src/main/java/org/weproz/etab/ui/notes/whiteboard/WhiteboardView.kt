@@ -107,8 +107,8 @@ class WhiteboardView @JvmOverloads constructor(
         } else {
             // EPUB Mode: Anchor to the scroll offset
             // Origin (0,0) is the top-left of the document
-            drawMatrix.postScale(lastScale, lastScale)
             drawMatrix.postTranslate(-lastScrollX * density, -lastScrollY * density)
+            drawMatrix.postScale(lastScale, lastScale)
         }
         
         drawMatrix.invert(inverseMatrix)
