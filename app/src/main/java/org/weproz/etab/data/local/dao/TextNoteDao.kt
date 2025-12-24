@@ -15,7 +15,7 @@ interface TextNoteDao {
     fun getAllNotes(): Flow<List<TextNoteEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(note: TextNoteEntity)
+    suspend fun insert(note: TextNoteEntity): Long
 
     @Update
     suspend fun update(note: TextNoteEntity)

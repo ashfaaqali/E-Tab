@@ -13,10 +13,10 @@ class NoteEditorActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNoteEditorBinding
     private var noteId: Long = -1
+    private var noteColor: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityNoteEditorBinding.inflate(layoutInflater)
         binding = ActivityNoteEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -27,24 +27,34 @@ class NoteEditorActivity : AppCompatActivity() {
         }
 
         noteId = intent.getLongExtra("note_id", -1)
+        noteColor = intent.getIntExtra("note_color", 0)
         val title = intent.getStringExtra("note_title")
         val content = intent.getStringExtra("note_content")
 
-        if (noteId != -1L) {
-            binding.editTitle.setText(title)
-            binding.editContent.setText(content)
-            binding.toolbar.title = "Edit Note"
+        if (savedInstanceState == null) {
+            if (noteId != -1L) {
+                binding.editTitle.setText(title)
+                binding.editContent.setText(content)
+                binding.toolbar.title = "Edit Note"
+            } else {
+                binding.toolbar.title = "New Note"
+            }
         } else {
-            binding.toolbar.title = "New Note"
+            if (noteId != -1L) {
+                binding.toolbar.title = "Edit Note"
+            } else {
+                binding.toolbar.title = "New Note"
+            }
         }
 
         binding.toolbar.setNavigationOnClickListener {
             finish()
         }
+    }
 
-        binding.fabSave.setOnClickListener {
-            saveNote()
-        }
+    override fun onPause() {
+        super.onPause()
+        saveNote()
     }
 
     private fun saveNote() {
@@ -52,8 +62,6 @@ class NoteEditorActivity : AppCompatActivity() {
         val content = binding.editContent.text.toString().trim()
 
         if (title.isEmpty() && content.isEmpty()) {
-            Toast.makeText(this, "Empty note discarded", Toast.LENGTH_SHORT).show()
-            finish()
             return
         }
 
@@ -63,16 +71,15 @@ class NoteEditorActivity : AppCompatActivity() {
                 id = if (noteId == -1L) 0 else noteId,
                 title = title,
                 content = content,
-                color = 0 // Default color for now
+                color = noteColor
             )
             
             if (noteId == -1L) {
-                dao.insert(note)
+                val newId = dao.insert(note)
+                noteId = newId
             } else {
                 dao.update(note)
             }
-            
-            finish()
         }
     }
 }
