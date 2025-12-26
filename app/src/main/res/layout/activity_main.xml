@@ -29,21 +29,6 @@
             android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_focus_mode"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:text="@string/focus"
-            android:textSize="12sp"
-            app:icon="@drawable/ic_focus_mode"
-            app:iconSize="18dp"
-            app:iconTint="?attr/colorOnPrimary"
-            app:cornerRadius="20dp"
-            android:backgroundTint="?attr/colorPrimary"
-            android:textColor="?attr/colorOnPrimary"
-            app:strokeWidth="0dp" />
     </LinearLayout>
 
     <androidx.fragment.app.FragmentContainerView

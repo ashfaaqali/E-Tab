@@ -103,8 +103,15 @@ object ShareHelper {
                 type = mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, title)
-                setPackage("com.android.bluetooth")
+                // Try to find the bluetooth package dynamically
+                val bluetoothPackage = getBluetoothPackageName(context)
+                if (bluetoothPackage != null) {
+                    setPackage(bluetoothPackage)
+                } else {
+                    setPackage("com.android.bluetooth")
+                }
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
             try {
@@ -112,12 +119,25 @@ object ShareHelper {
             } catch (_: Exception) {
                 // Bluetooth not available, show chooser
                 val chooser = Intent.createChooser(intent.apply { setPackage(null) }, "Share via")
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(chooser)
             }
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(context, "Failed to share: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun getBluetoothPackageName(context: Context): String? {
+        val intent = Intent(Intent.ACTION_SEND)
+        intent.type = "*/*"
+        val list = context.packageManager.queryIntentActivities(intent, 0)
+        for (info in list) {
+            if (info.activityInfo.packageName.contains("bluetooth", ignoreCase = true)) {
+                return info.activityInfo.packageName
+            }
+        }
+        return null
     }
 
     private fun createTextNotePdf(context: Context, note: TextNoteEntity): File {
