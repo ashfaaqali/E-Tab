@@ -1,0 +1,6 @@
+{
+"android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": "org.weproz.etab/.device.ETabDeviceAdminReceiver",
+"android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": "https://drive.google.com/uc?export=download&id=1ZgTMmkxtRmL7wJo3xgn8lxwP4MwGBbtT",
+"android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM": "vtI/8TzYpTeFOYfiVqH/unWgEy5GK7ckBPCxUdIxuRY=",
+"android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED": true
+}
