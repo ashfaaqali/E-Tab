@@ -87,6 +87,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    override fun onResume() {
+        super.onResume()
+        // Ensure Kiosk mode is active whenever the app is resumed
+        if (::kioskManager.isInitialized) {
+            kioskManager.enableKioskMode(this)
+        }
+    }
+
     override fun onBackPressed() {
         // Do nothing to prevent exiting
     }

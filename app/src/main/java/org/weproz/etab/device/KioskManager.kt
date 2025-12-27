@@ -125,11 +125,14 @@ class KioskManager(private val context: Context) {
             // Handle exception
         }
 
-        if (devicePolicyManager.isLockTaskPermitted(context.packageName)) {
-            activity.startLockTask()
-        } else {
-            // Should be permitted now that we set it, but just in case
-            activity.startLockTask()
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        if (activityManager.lockTaskModeState == android.app.ActivityManager.LOCK_TASK_MODE_NONE) {
+            try {
+                activity.startLockTask()
+            } catch (e: Exception) {
+                // Ignore "Invalid task, not in foreground" error
+                e.printStackTrace()
+            }
         }
     }
 
