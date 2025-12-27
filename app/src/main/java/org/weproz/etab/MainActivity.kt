@@ -1,6 +1,7 @@
 package org.weproz.etab
 
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -48,5 +49,45 @@ class MainActivity : AppCompatActivity() {
         kioskManager = KioskManager(this)
         kioskManager.enableKioskMode(this)
         
+        checkAndRequestBluetoothPermission()
+    }
+
+    private fun checkAndRequestBluetoothPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                androidx.core.app.ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT, android.Manifest.permission.BLUETOOTH_ADVERTISE), 100)
+            } else {
+                makeDeviceDiscoverable()
+            }
+        } else {
+            makeDeviceDiscoverable()
+        }
+    }
+    
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 100 && grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            makeDeviceDiscoverable()
+        }
+    }
+    
+    private fun makeDeviceDiscoverable() {
+        val discoverableIntent = android.content.Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+            // 0 means "always discoverable" on Android versions that support it.
+            // If capped, it will default to 120 or 300 seconds.
+            // However, since we are in Kiosk mode, we can re-request it periodically if needed.
+            putExtra(android.bluetooth.BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 0) 
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            startActivity(discoverableIntent)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Could not request discoverability: ${e.message}")
+            android.widget.Toast.makeText(this, "Could not request discoverability", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    override fun onBackPressed() {
+        // Do nothing to prevent exiting
     }
 }

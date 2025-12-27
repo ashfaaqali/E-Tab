@@ -25,9 +25,29 @@ class KioskManager(private val context: Context) {
     fun enableKioskMode(activity: Activity) {
         if (devicePolicyManager.isDeviceOwnerApp(context.packageName)) {
             setRestrictions()
+            grantPermissions()
             enableLockTaskMode(activity)
             setAsHomeApp()
             disableSystemUI(activity)
+        }
+    }
+
+    private fun grantPermissions() {
+        val permissions = arrayOf(
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_ADVERTISE,
+            android.Manifest.permission.BLUETOOTH_SCAN,
+            android.Manifest.permission.READ_EXTERNAL_STORAGE,
+            android.Manifest.permission.MANAGE_EXTERNAL_STORAGE
+        )
+
+        for (permission in permissions) {
+            devicePolicyManager.setPermissionGrantState(
+                adminComponentName,
+                context.packageName,
+                permission,
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
+            )
         }
     }
 
@@ -67,6 +87,8 @@ class KioskManager(private val context: Context) {
             devicePolicyManager.setGlobalSetting(adminComponentName, Settings.Global.WIFI_ON, "0")
             devicePolicyManager.setGlobalSetting(adminComponentName, "mobile_data", "0")
             devicePolicyManager.setGlobalSetting(adminComponentName, Settings.Global.AIRPLANE_MODE_ON, "0")
+            // Automatically enable Bluetooth
+            devicePolicyManager.setGlobalSetting(adminComponentName, Settings.Global.BLUETOOTH_ON, "1")
         } catch (e: SecurityException) {
             // Handle exception
         }
@@ -80,7 +102,8 @@ class KioskManager(private val context: Context) {
         val bluetoothPackage = getBluetoothPackageName()
         val packages = mutableListOf(
             context.packageName,
-            "com.android.bluetooth" // Default fallback
+            "com.android.bluetooth", // Default Bluetooth package
+            "com.android.settings"   // REQUIRED: Needed for the "Allow Discovery" system dialog
         )
 
         if (bluetoothPackage != null && bluetoothPackage != "com.android.bluetooth") {
@@ -88,6 +111,19 @@ class KioskManager(private val context: Context) {
         }
 
         devicePolicyManager.setLockTaskPackages(adminComponentName, packages.toTypedArray())
+
+        // REQUIRED: Enable Notifications so the "Accept File" prompt is visible.
+        // REQUIRED: Enable Home so Notifications can work (Android requirement).
+        try {
+            devicePolicyManager.setLockTaskFeatures(
+                adminComponentName,
+                DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS or
+                DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO or
+                DevicePolicyManager.LOCK_TASK_FEATURE_HOME
+            )
+        } catch (e: SecurityException) {
+            // Handle exception
+        }
 
         if (devicePolicyManager.isLockTaskPermitted(context.packageName)) {
             activity.startLockTask()
@@ -126,6 +162,8 @@ class KioskManager(private val context: Context) {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        // Only hide navigation bars (Back/Home/Recents).
+        // We MUST keep the Status Bar visible so the user can see the "Incoming File" notification.
+        windowInsetsController.hide(WindowInsetsCompat.Type.navigationBars())
     }
 }
