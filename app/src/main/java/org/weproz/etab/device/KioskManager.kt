@@ -66,6 +66,7 @@ class KioskManager(private val context: Context) {
             UserManager.DISALLOW_INSTALL_APPS,
             UserManager.DISALLOW_UNINSTALL_APPS,
             UserManager.DISALLOW_USB_FILE_TRANSFER,
+            UserManager.DISALLOW_OUTGOING_CALLS,
              // We allow using bluetooth, but maybe not configuring it? User said "bluetooth functionality". Usually this means allowing the radio.
             // If we disallow config bluetooth, they might not be able to pair.
             // Let's keep bluetooth config allowed for now as "bluetooth functionality" implies pairing.
@@ -102,8 +103,7 @@ class KioskManager(private val context: Context) {
         val bluetoothPackage = getBluetoothPackageName()
         val packages = mutableListOf(
             context.packageName,
-            "com.android.bluetooth", // Default Bluetooth package
-            "com.android.settings"   // REQUIRED: Needed for the "Allow Discovery" system dialog
+            "com.android.bluetooth" // Default Bluetooth package
         )
 
         if (bluetoothPackage != null && bluetoothPackage != "com.android.bluetooth") {
@@ -113,13 +113,12 @@ class KioskManager(private val context: Context) {
         devicePolicyManager.setLockTaskPackages(adminComponentName, packages.toTypedArray())
 
         // REQUIRED: Enable Notifications so the "Accept File" prompt is visible.
-        // REQUIRED: Enable Home so Notifications can work (Android requirement).
+        // REMOVED: LOCK_TASK_FEATURE_HOME to prevent escaping via Home button.
         try {
             devicePolicyManager.setLockTaskFeatures(
                 adminComponentName,
                 DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS or
-                DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO or
-                DevicePolicyManager.LOCK_TASK_FEATURE_HOME
+                DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO
             )
         } catch (e: SecurityException) {
             // Handle exception
